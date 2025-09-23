@@ -1,0 +1,683 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Authentication Management - SSM Dashboard{% endblock %}
+{% block page_title %}Authentication Management{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="space-y-6">
+    <!-- Authentication Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5">
+                    <h3 class="text-lg font-medium text-gray-900">Auth Users</h3>
+                    <p class="text-3xl font-bold text-gray-900">{{ total_auth_users }}</p>
+                    <p class="text-sm text-gray-500">{{ active_auth_users }} active</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5">
+                    <h3 class="text-lg font-medium text-gray-900">API Tokens</h3>
+                    <p class="text-3xl font-bold text-gray-900">{{ total_tokens }}</p>
+                    <p class="text-sm text-gray-500">Active tokens</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5">
+                    <h3 class="text-lg font-medium text-gray-900">Staff Users</h3>
+                    <p class="text-3xl font-bold text-gray-900">{{ staff_users }}</p>
+                    <p class="text-sm text-gray-500">Admin access</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5">
+                    <h3 class="text-lg font-medium text-gray-900">Superusers</h3>
+                    <p class="text-3xl font-bold text-gray-900">{{ superusers }}</p>
+                    <p class="text-sm text-gray-500">Full access</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5">
+                    <h3 class="text-lg font-medium text-gray-900">No Tokens</h3>
+                    <p class="text-3xl font-bold text-gray-900">{{ auth_users_without_tokens.count }}</p>
+                    <p class="text-sm text-gray-500">Need tokens</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Authentication Activities -->
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Recent Authentication Activities</h3>
+        </div>
+        <div class="px-6 py-4">
+            {% if recent_activities %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for activity in recent_activities %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <img class="h-10 w-10 rounded-full"
+                                                     src="https://ui-avatars.com/api/?name={{ activity.user.full_name|urlencode }}&background=667eea&color=fff"
+                                                     alt="{{ activity.user.full_name }}">
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">{{ activity.user.full_name }}</div>
+                                                <div class="text-sm text-gray-500">{{ activity.user.email }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                            {% if activity.action == 'LOGIN' %}bg-green-100 text-green-800
+                                            {% elif activity.action == 'LOGOUT' %}bg-gray-100 text-gray-800
+                                            {% elif activity.action == 'PASSWORD_RESET' %}bg-yellow-100 text-yellow-800
+                                            {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                            {{ activity.action }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">{{ activity.description }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ activity.created_at|date:"M j, Y H:i" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-8">No recent authentication activities found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Tokens -->
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Active Authentication Tokens</h3>
+        </div>
+        <div class="px-6 py-4">
+            {% if tokens_page_obj %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Token (Partial)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for token in tokens_page_obj %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <img class="h-10 w-10 rounded-full"
+                                                     src="https://ui-avatars.com/api/?name={{ token.user.username|urlencode }}&background=667eea&color=fff"
+                                                     alt="{{ token.user.username }}">
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">{{ token.user.username }}</div>
+                                                <div class="text-sm text-gray-500">{{ token.user.email }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">{{ token.key|slice:":16" }}...</code>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ token.created|date:"M j, Y H:i" }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button onclick="revokeToken('{{ token.key }}')"
+                                                class="text-red-600 hover:text-red-900">
+                                            Revoke
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination for Tokens -->
+                {% if tokens_page_obj.has_other_pages %}
+                <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div class="flex flex-1 justify-between sm:hidden">
+                        {% if tokens_page_obj.has_previous %}
+                            <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}tokens_page={{ tokens_page_obj.previous_page_number }}"
+                               class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Previous
+                            </a>
+                        {% endif %}
+                        {% if tokens_page_obj.has_next %}
+                            <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}tokens_page={{ tokens_page_obj.next_page_number }}"
+                               class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Next
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing <span class="font-medium">{{ tokens_page_obj.start_index }}</span>
+                                to <span class="font-medium">{{ tokens_page_obj.end_index }}</span>
+                                of <span class="font-medium">{{ tokens_page_obj.paginator.count }}</span> results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                {% if tokens_page_obj.has_previous %}
+                                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}tokens_page={{ tokens_page_obj.previous_page_number }}"
+                                       class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                        <span class="sr-only">Previous</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+
+                                {% for num in tokens_page_obj.paginator.page_range %}
+                                    {% if tokens_page_obj.number == num %}
+                                        <span class="relative z-10 inline-flex items-center bg-indigo-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ num }}</span>
+                                    {% elif num > tokens_page_obj.number|add:'-3' and num < tokens_page_obj.number|add:'3' %}
+                                        <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}tokens_page={{ num }}"
+                                           class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ num }}</a>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if tokens_page_obj.has_next %}
+                                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}tokens_page={{ tokens_page_obj.next_page_number }}"
+                                       class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                        <span class="sr-only">Next</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <p class="text-gray-500 text-center py-8">No active tokens found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Django Auth Users Management -->
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Django Authentication Users</h3>
+                <div class="flex space-x-3">
+                    <form action="{% url 'dashboard:import_auth_users_csv' %}" method="post" enctype="multipart/form-data" class="flex items-center space-x-2">
+                        {% csrf_token %}
+                        <input type="file" name="csv_file" accept=".csv" required
+                               class="text-sm border border-gray-300 rounded-md px-3 py-1">
+                        <button type="submit"
+                                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                            Import CSV
+                        </button>
+                    </form>
+                    <button onclick="createAuthUser()"
+                            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        Create New User
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filter Section -->
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <form method="get" class="flex flex-wrap gap-4 items-center">
+                <div class="flex-1 min-w-0">
+                    <input type="text" name="search" value="{{ search }}" placeholder="Search by username, email, name..."
+                           class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex space-x-2">
+                    <select name="status" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">All Status</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                    <select name="permission" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">All Permissions</option>
+                        <option value="superuser" {% if permission_filter == 'superuser' %}selected{% endif %}>Superuser</option>
+                        <option value="staff" {% if permission_filter == 'staff' %}selected{% endif %}>Staff</option>
+                        <option value="user" {% if permission_filter == 'user' %}selected{% endif %}>User</option>
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        Filter
+                    </button>
+                    {% if search or status_filter or permission_filter %}
+                    <a href="{% url 'dashboard:authentication' %}" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                        Clear
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        <div class="px-6 py-4">
+            {% if auth_users_page_obj %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permissions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for user in auth_users_page_obj %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <img class="h-10 w-10 rounded-full"
+                                                     src="https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=667eea&color=fff"
+                                                     alt="{{ user.username }}">
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                                                <div class="text-sm text-gray-500">{{ user.email|default:"No email" }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                            {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                            {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <div class="flex space-x-1">
+                                            {% if user.is_superuser %}
+                                                <span class="inline-flex px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Superuser</span>
+                                            {% endif %}
+                                            {% if user.is_staff %}
+                                                <span class="inline-flex px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Staff</span>
+                                            {% endif %}
+                                            {% if not user.is_staff and not user.is_superuser %}
+                                                <span class="inline-flex px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">User</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {% if user.last_login %}{{ user.last_login|date:"M j, Y H:i" }}{% else %}Never{% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="flex space-x-2">
+                                            <button onclick="resetPassword('{{ user.id }}')"
+                                                    class="text-blue-600 hover:text-blue-900">
+                                                Reset Password
+                                            </button>
+                                            <button onclick="toggleUserStatus('{{ user.id }}')"
+                                                    class="text-green-600 hover:text-green-900">
+                                                {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                                            </button>
+                                            {% if not user.is_superuser %}
+                                            <button onclick="toggleStaff('{{ user.id }}')"
+                                                    class="text-purple-600 hover:text-purple-900">
+                                                {% if user.is_staff %}Remove Staff{% else %}Make Staff{% endif %}
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination for Auth Users -->
+                {% if auth_users_page_obj.has_other_pages %}
+                <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div class="flex flex-1 justify-between sm:hidden">
+                        {% if auth_users_page_obj.has_previous %}
+                            <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}users_page={{ auth_users_page_obj.previous_page_number }}"
+                               class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Previous
+                            </a>
+                        {% endif %}
+                        {% if auth_users_page_obj.has_next %}
+                            <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}users_page={{ auth_users_page_obj.next_page_number }}"
+                               class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Next
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing <span class="font-medium">{{ auth_users_page_obj.start_index }}</span>
+                                to <span class="font-medium">{{ auth_users_page_obj.end_index }}</span>
+                                of <span class="font-medium">{{ auth_users_page_obj.paginator.count }}</span> results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                {% if auth_users_page_obj.has_previous %}
+                                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}users_page={{ auth_users_page_obj.previous_page_number }}"
+                                       class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                        <span class="sr-only">Previous</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+
+                                {% for num in auth_users_page_obj.paginator.page_range %}
+                                    {% if auth_users_page_obj.number == num %}
+                                        <span class="relative z-10 inline-flex items-center bg-indigo-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ num }}</span>
+                                    {% elif num > auth_users_page_obj.number|add:'-3' and num < auth_users_page_obj.number|add:'3' %}
+                                        <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}users_page={{ num }}"
+                                           class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ num }}</a>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if auth_users_page_obj.has_next %}
+                                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if permission_filter %}permission={{ permission_filter }}&{% endif %}users_page={{ auth_users_page_obj.next_page_number }}"
+                                       class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                        <span class="sr-only">Next</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <p class="text-gray-500 text-center py-8">No Django auth users found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Auth Users Without Tokens -->
+    {% if auth_users_without_tokens %}
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Auth Users Without API Tokens</h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for user in auth_users_without_tokens %}
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <img class="h-8 w-8 rounded-full"
+                                     src="https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=667eea&color=fff"
+                                     alt="{{ user.username }}">
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                                    <p class="text-xs text-gray-500">{{ user.email|default:"No email" }}</p>
+                                </div>
+                            </div>
+                            <button onclick="createAuthToken('{{ user.id }}')"
+                                    class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+                                Create Token
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function revokeToken(tokenKey) {
+    if (confirm('Are you sure you want to revoke this token? The user will be logged out immediately.')) {
+        // Implement token revocation
+        fetch('/dashboard/authentication/revoke-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                'token_key': tokenKey
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error revoking token: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error revoking token: ' + error);
+        });
+    }
+}
+
+function createToken(userId) {
+    if (confirm('Create authentication token for this user?')) {
+        // Implement token creation
+        fetch('/dashboard/authentication/create-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                'user_id': userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error creating token: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error creating token: ' + error);
+        });
+    }
+}
+
+function createAuthToken(authUserId) {
+    if (confirm('Create API token for this auth user?')) {
+        fetch('/dashboard/authentication/create-auth-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                'auth_user_id': authUserId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error creating token: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error creating token: ' + error);
+        });
+    }
+}
+
+function createAuthUser() {
+    const username = prompt('Enter username:');
+    if (!username) return;
+
+    const email = prompt('Enter email (optional):');
+    const password = prompt('Enter password:');
+    if (!password) return;
+
+    fetch('/dashboard/authentication/create-auth-user/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            'username': username,
+            'email': email,
+            'password': password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error creating user: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error creating user: ' + error);
+    });
+}
+
+function resetPassword(authUserId) {
+    const newPassword = prompt('Enter new password:');
+    if (!newPassword) return;
+
+    fetch('/dashboard/authentication/reset-auth-password/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            'auth_user_id': authUserId,
+            'new_password': newPassword
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Password reset successfully');
+            location.reload();
+        } else {
+            alert('Error resetting password: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error resetting password: ' + error);
+    });
+}
+
+function toggleUserStatus(authUserId) {
+    if (confirm('Toggle user active status?')) {
+        fetch('/dashboard/authentication/toggle-user-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                'auth_user_id': authUserId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error toggling user status: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error toggling user status: ' + error);
+        });
+    }
+}
+
+function toggleStaff(authUserId) {
+    if (confirm('Toggle staff status?')) {
+        fetch('/dashboard/authentication/toggle-staff/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                'auth_user_id': authUserId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error toggling staff status: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error toggling staff status: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

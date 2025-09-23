@@ -1,0 +1,1686 @@
+{
+	"info": {
+		"_postman_id": "ssm-backend-api-collection",
+		"name": "SSM Backend API",
+		"description": "Complete API collection for SSM Backend with both Supabase-compatible and Django REST Framework endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔐 Authentication (Supabase-Compatible)",
+			"item": [
+				{
+					"name": "Sign Up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"testpassword123\",\n  \"options\": {\n    \"data\": {\n      \"full_name\": \"Test User\",\n      \"id_number\": \"123456789\",\n      \"id_front_url\": \"https://example.com/front.jpg\",\n      \"id_back_url\": \"https://example.com/back.jpg\",\n      \"role\": \"staff\",\n      \"phone_number\": \"+1234567890\"\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/signup",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"signup"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sign In",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.session && response.data.session.access_token) {",
+									"        pm.environment.set('access_token', response.data.session.access_token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"testpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sign Out",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🗄️ Database Operations (Supabase-Compatible)",
+			"item": [
+				{
+					"name": "Select from Teams",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"teams\",\n  \"filters\": {\n    \"is_active\": true\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/select",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"select"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Insert Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"teams\",\n  \"data\": {\n    \"name\": \"Test Team\",\n    \"region\": \"North Region\",\n    \"territory\": \"Downtown\",\n    \"is_active\": true\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/insert",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"insert"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Insert SIM Cards (Bulk)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"sim_cards\",\n  \"data\": [\n    {\n      \"serial_number\": \"SIM001\",\n      \"status\": \"PENDING\",\n      \"batch_id\": \"BATCH001\",\n      \"quality\": \"QUALITY\",\n      \"match\": \"Y\"\n    },\n    {\n      \"serial_number\": \"SIM002\",\n      \"status\": \"PENDING\",\n      \"batch_id\": \"BATCH001\",\n      \"quality\": \"NONQUALITY\",\n      \"match\": \"N\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/insert",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"insert"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Select SIM Cards with Filters",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"sim_cards\",\n  \"filters\": {\n    \"status\": \"PENDING\",\n    \"batch_id\": \"BATCH001\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/select",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"select"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"teams\",\n  \"data\": {\n    \"territory\": \"Updated Territory\"\n  },\n  \"where\": {\n    \"name\": \"Test Team\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/update",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete SIM Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"sim_cards\",\n  \"where\": {\n    \"serial_number\": \"SIM001\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/db/delete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"db",
+								"delete"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📁 Storage Operations (Supabase-Compatible)",
+			"item": [
+				{
+					"name": "Upload File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/storage/upload",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"storage",
+								"upload"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Download File",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/storage/filename.txt",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"storage",
+								"filename.txt"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "👥 Users (Django REST API)",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/me/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/?search=john",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "john"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newuser@example.com\",\n  \"full_name\": \"New User\",\n  \"id_number\": \"987654321\",\n  \"id_front_url\": \"https://example.com/front.jpg\",\n  \"id_back_url\": \"https://example.com/back.jpg\",\n  \"phone_number\": \"+1234567890\",\n  \"role\": \"staff\",\n  \"auth_user_id\": \"550e8400-e29b-41d4-a716-446655440000\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle User Active Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/{{user_id}}/toggle_active/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"{{user_id}}",
+								"toggle_active",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🏢 Teams (Django REST API)",
+			"item": [
+				{
+					"name": "List Teams",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/teams/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"teams",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"DRF Test Team\",\n  \"region\": \"South Region\",\n  \"territory\": \"Uptown\",\n  \"van_number_plate\": \"ABC-123\",\n  \"van_location\": \"Main Office\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/teams/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"teams",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Teams by Region",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/teams/?region=North Region",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"teams",
+								""
+							],
+							"query": [
+								{
+									"key": "region",
+									"value": "North Region"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Team Performance",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/teams/{{team_id}}/performance/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"teams",
+								"{{team_id}}",
+								"performance",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📱 SIM Cards (Django REST API)",
+			"item": [
+				{
+					"name": "List SIM Cards",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-cards/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-cards",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create SIM Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"serial_number\": \"DRF-SIM-001\",\n  \"status\": \"PENDING\",\n  \"batch_id\": \"DRF-BATCH-001\",\n  \"quality\": \"QUALITY\",\n  \"match\": \"Y\",\n  \"team\": \"{{team_id}}\",\n  \"registered_by_user\": \"{{user_id}}\",\n  \"admin\": \"{{user_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-cards/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-cards",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter SIM Cards by Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-cards/?status=PENDING",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-cards",
+								""
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "PENDING"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Update SIM Card Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"sim_card_ids\": [\"sim-card-id-1\", \"sim-card-id-2\"],\n  \"status\": \"REGISTERED\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-cards/bulk_update_status/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-cards",
+								"bulk_update_status",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📦 Batch Management (Django REST API)",
+			"item": [
+				{
+					"name": "List Batch Metadata",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/batch-metadata/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"batch-metadata",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Batch Metadata",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"batch_id\": \"DRF-BATCH-001\",\n  \"order_number\": \"ORD-001\",\n  \"requisition_number\": \"REQ-001\",\n  \"company_name\": \"Test Company\",\n  \"collection_point\": \"Main Warehouse\",\n  \"item_description\": \"Standard SIM Cards\",\n  \"quantity\": 100,\n  \"team\": \"{{team_id}}\",\n  \"created_by_user\": \"{{user_id}}\",\n  \"lot_numbers\": [\"LOT001\", \"LOT002\"],\n  \"teams\": [\"{{team_id}}\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/batch-metadata/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"batch-metadata",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "👤 Onboarding Requests (Django REST API)",
+			"item": [
+				{
+					"name": "List Onboarding Requests",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/onboarding-requests/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"onboarding-requests",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Onboarding Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Pending User\",\n  \"id_number\": \"555666777\",\n  \"id_front_url\": \"https://example.com/pending_front.jpg\",\n  \"id_back_url\": \"https://example.com/pending_back.jpg\",\n  \"phone_number\": \"+9876543210\",\n  \"role\": \"staff\",\n  \"request_type\": \"ONBOARDING\",\n  \"requested_by\": \"{{user_id}}\",\n  \"admin\": \"{{user_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/onboarding-requests/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"onboarding-requests",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Onboarding Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/onboarding-requests/{{onboarding_request_id}}/approve/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"onboarding-requests",
+								"{{onboarding_request_id}}",
+								"approve",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Onboarding Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"review_notes\": \"Incomplete documentation provided\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/onboarding-requests/{{onboarding_request_id}}/reject/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"onboarding-requests",
+								"{{onboarding_request_id}}",
+								"reject",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔄 SIM Card Transfers (Django REST API)",
+			"item": [
+				{
+					"name": "List SIM Card Transfers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-card-transfers/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-card-transfers",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create SIM Card Transfer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"source_team\": \"{{source_team_id}}\",\n  \"destination_team\": \"{{destination_team_id}}\",\n  \"requested_by\": \"{{user_id}}\",\n  \"reason\": \"Team restructuring\",\n  \"notes\": \"Transfer requested for operational efficiency\",\n  \"sim_cards\": [\"{{sim_card_id_1}}\", \"{{sim_card_id_2}}\"],\n  \"admin\": \"{{user_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-card-transfers/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-card-transfers",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve SIM Card Transfer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/sim-card-transfers/{{transfer_id}}/approve/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sim-card-transfers",
+								"{{transfer_id}}",
+								"approve",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "💬 Forum (Django REST API)",
+			"item": [
+				{
+					"name": "List Forum Topics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-topics/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-topics",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Forum Topic",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Welcome to SSM Forum\",\n  \"content\": \"This is the first topic in our SSM community forum!\",\n  \"is_pinned\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-topics/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-topics",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Like Forum Topic",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-topics/{{topic_id}}/like/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-topics",
+								"{{topic_id}}",
+								"like",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Increment Topic View Count",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-topics/{{topic_id}}/increment_view_count/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-topics",
+								"{{topic_id}}",
+								"increment_view_count",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Forum Posts by Topic",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-posts/?topic_id={{topic_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-posts",
+								""
+							],
+							"query": [
+								{
+									"key": "topic_id",
+									"value": "{{topic_id}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Forum Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"{{topic_id}}\",\n  \"content\": \"Great topic! Looking forward to the discussion.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/forum-posts/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"forum-posts",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔔 Notifications (Django REST API)",
+			"item": [
+				{
+					"name": "List Notifications",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/notifications/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Unread Notifications",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/notifications/?unread_only=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								""
+							],
+							"query": [
+								{
+									"key": "unread_only",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user\": \"{{user_id}}\",\n  \"title\": \"Welcome to SSM\",\n  \"message\": \"Welcome to the SSM system! Your account has been activated.\",\n  \"type\": \"welcome\",\n  \"metadata\": {\n    \"category\": \"onboarding\",\n    \"priority\": \"normal\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/notifications/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Notification as Read",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/notifications/{{notification_id}}/mark_as_read/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								"{{notification_id}}",
+								"mark_as_read",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark All Notifications as Read",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": \"{{user_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/notifications/mark_all_as_read/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								"mark_all_as_read",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📊 Activity Logs (Django REST API)",
+			"item": [
+				{
+					"name": "List Activity Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activity-logs/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activity-logs",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Activity Logs by User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activity-logs/?user_id={{user_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activity-logs",
+								""
+							],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "{{user_id}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Activity Logs by Action Type",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activity-logs/?action_type=SIM_STATUS_UPDATE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activity-logs",
+								""
+							],
+							"query": [
+								{
+									"key": "action_type",
+									"value": "SIM_STATUS_UPDATE"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "⚙️ Configuration (Django REST API)",
+			"item": [
+				{
+					"name": "List Configuration Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/config/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"config",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Configuration Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"key\": \"system_maintenance_mode\",\n  \"value\": {\n    \"enabled\": false,\n    \"message\": \"System maintenance in progress\",\n    \"scheduled_end\": \"2024-01-15T10:00:00Z\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/config/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"config",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Configuration Item",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Token {{drf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"key\": \"system_maintenance_mode\",\n  \"value\": {\n    \"enabled\": true,\n    \"message\": \"Scheduled maintenance in progress\",\n    \"scheduled_end\": \"2024-01-15T12:00:00Z\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/config/system_maintenance_mode/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"config",
+								"system_maintenance_mode",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "drf_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "team_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "topic_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "notification_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "onboarding_request_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "transfer_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "source_team_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "destination_team_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sim_card_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sim_card_id_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sim_card_id_2",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
