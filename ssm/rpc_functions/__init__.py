@@ -1,0 +1,26 @@
+"""
+RPC Functions Registry
+This module dynamically imports and registers all RPC functions
+"""
+from .auth_functions import functions as auth_functions
+from .team_functions import functions as team_functions
+from .simcard_functions import functions as simcard_functions
+from .batch_functions import functions as batch_functions
+from .user_functions import functions as user_functions
+from .team_membership_functions import functions as team_membership_functions
+from .onboarding_functions import functions as onboarding_functions
+from .analytics_functions import functions as analytics_functions
+from .reports_functions import functions as reports_functions
+
+# Combine all function registries
+functions = {
+    **auth_functions,
+    **team_functions,
+    **simcard_functions,
+    **batch_functions,
+    **user_functions,
+    **team_membership_functions,
+    **onboarding_functions,
+    **analytics_functions,
+    **reports_functions,
+}

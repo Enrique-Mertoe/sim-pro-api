@@ -1,0 +1,19 @@
+Verify Your Email Address
+========================
+
+Hi {{ user_name }},
+
+Thank you for registering with SSM! To complete your registration and activate your account, please verify your email address.
+
+Click the link below to verify your email:
+{{ verification_link }}
+
+⚠️ SECURITY NOTICE:
+This verification link will expire in 24 hours. If you didn't create an account with SSM, please ignore this email.
+
+---
+
+This is an automated message from SSM Support.
+If you have any questions, please contact our support team.
+
+© {% now "Y" %} SSM. All rights reserved.

@@ -1,7 +1,39 @@
+from functools import wraps
+
 from django.http import JsonResponse
 from rest_framework.authtoken.models import Token
 
-from ssm.models import User
+from .models import (
+    User, Team, SimCard, BatchMetadata, ActivityLog, OnboardingRequest,
+    SimCardTransfer, PaymentRequest, Subscription, SubscriptionPlan,
+    ForumTopic, ForumPost, ForumLike, SecurityRequestLog, TaskStatus,
+    Config, Notification, PasswordResetRequest, LotMetadata, TeamGroup, TeamGroupMembership
+)
+
+# Model mapping for dynamic table access
+MODEL_MAP = {
+    'users': User,
+    'teams': Team,
+    'team_groups': TeamGroup,
+    'team_group_memberships': TeamGroupMembership,
+    'sim_cards': SimCard,
+    'batch_metadata': BatchMetadata,
+    'lot_metadata': LotMetadata,
+    'activity_logs': ActivityLog,
+    'onboarding_requests': OnboardingRequest,
+    'sim_card_transfers': SimCardTransfer,
+    'payment_requests': PaymentRequest,
+    'subscriptions': Subscription,
+    'subscription_plans': SubscriptionPlan,
+    'forum_topics': ForumTopic,
+    'forum_posts': ForumPost,
+    'forum_likes': ForumLike,
+    'security_request_logs': SecurityRequestLog,
+    'task_status': TaskStatus,
+    'config': Config,
+    'notifications': Notification,
+    'password_reset_requests': PasswordResetRequest,
+}
 
 
 def serialize_user(user):
@@ -66,7 +98,7 @@ def serialize_user(user):
     return user_data
 
 
-def get_user_from_token(request):
+def get_user_from_token(request) -> User | None:
     """Get user from Authorization header or cookies"""
     token = None
 
@@ -96,3 +128,20 @@ def supabase_response(*, data=None, error=None, status=200):
     if data is None:
         data = {}
     return JsonResponse({"data": data, "error": error}, status=status, safe=False)
+
+
+def require_ssm_api_key(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        api_key = request.headers.get("apikey") or request.GET.get("api_key")
+        VALID_API_KEY = "my-secret-key"
+
+        if api_key != VALID_API_KEY:
+            return supabase_response(
+                error={'message': 'Authentication required'},
+                status=401
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view

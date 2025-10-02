@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 from decouple import config
@@ -27,9 +27,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-_87k+croy7a3$$i0(6=zkaguf6bcq^tg8uec1soca_qz96&qy)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("APP_DEBUG", False)
+DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "simpro-api.lomtechnology.com",
+    "192.168.0.116"
+]
 
 # Application definition
 
@@ -81,35 +86,37 @@ WSGI_APPLICATION = 'ssm_backend_api.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Development database (SQLite)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# Production database (PostgreSQL) - uncomment for production
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'postgres',
-#         'USER': 'postgres',
-#         'PASSWORD': 'password',
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': config('DB_NAME'),
+#         'USER': config('DB_USER'),
+#         'PASSWORD': config('DB_PASSWORD'),
+#         'HOST': config('DB_HOST', default='localhost'),
+#         'PORT': config('DB_PORT', default='3306'),
+#         'OPTIONS': {
+#             'charset': 'utf8mb4',
+#         }
+#     }
+# }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': "lomtechn_sim_pro",
+#         'USER': "lomtechn_sim_pro",
+#         'PASSWORD': "Qwerty123_-@1",
 #         'HOST': 'localhost',
-#         'PORT': '5432',
+#         'PORT': '3306',
+#         'OPTIONS': {
+#             'charset': 'utf8mb4',
+#         }
 #     }
 # }
 
@@ -166,12 +173,8 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings for development - allow all origins and headers
-CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    default="",
-    cast=lambda v: [s.strip() for s in v.split(",")] if v else []
-)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000","https://ssm-fe-v1.vercel.app", "https://safaricom.lomtechnology.com", "https://admin.myapp.com"]
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow common headers used by APIs
@@ -216,3 +219,9 @@ AUTHENTICATION_BACKENDS = [
 LOGIN_URL = '/dashboard/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/dashboard/login/'
+
+
+# mail
+DEFAULT_FROM_EMAIL = "support@kaigates.com"
+
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:4200')

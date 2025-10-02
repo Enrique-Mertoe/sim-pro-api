@@ -20,6 +20,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="ssm_v2" />
     <orderEntry type="module" module-name="ssm_v3" />
+    <orderEntry type="module" module-name="ssm-fe-v1" />
   </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Django" />
