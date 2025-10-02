@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
@@ -574,4 +575,4 @@ def health_check(request):
 @api_view(['GET'])
 @permission_classes([])
 def home(request):
-    return Response({'message': 'SSM Backend API', 'version': '1.0.0'})
+    return JsonResponse({'message': 'SSM Backend API', 'version': '1.0.0'})
