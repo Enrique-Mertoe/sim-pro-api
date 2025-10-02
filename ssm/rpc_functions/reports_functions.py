@@ -5,9 +5,6 @@ Handles Safaricom dealer portal XLS report uploads and analysis
 from ssm.models.base_models import User, Team, LotMetadata, BatchMetadata, SimCard
 import pandas as pd
 from io import BytesIO
-from decimal import Decimal
-from datetime import datetime
-from django.db import transaction
 
 
 def get_teams_with_lots_mapping(user):
@@ -63,7 +60,6 @@ def get_teams_with_lots_mapping(user):
                 'team_name': team.name,
                 'lots': lots_list
             })
-
         return {
             'success': True,
             'teams': teams_data,
@@ -212,7 +208,7 @@ def get_or_create_default_team(user):
             return default_team
 
         # Create new default team
-        default_team_name = f"{user.username} - Default"
+        default_team_name = f"{user.full_name} - Default"
 
         default_team = Team.objects.create(
             name=default_team_name,

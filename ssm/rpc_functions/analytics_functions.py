@@ -13,9 +13,9 @@ def get_connections_analytics(user, start_date=None, end_date=None):
     Filters by activation_date range and only includes cards with activation_date not null
     """
     try:
-        # Base queryset - only activated sim cards for this admin
+        # Base queryset - only activated sim cards whose batches belong to this admin
         base_query = SimCard.objects.filter(
-            admin=user,
+            batch__admin=user,
             activation_date__isnull=False
         )
 
@@ -97,9 +97,9 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None):
         from django.db.models import Value as V, CharField
         from django.db.models.functions import Coalesce
 
-        # Base queryset - only activated sim cards for this admin
+        # Base queryset - only activated sim cards whose batches belong to this admin
         base_query = SimCard.objects.filter(
-            admin=user,
+            batch__admin=user,
             activation_date__isnull=False
         )
 
@@ -208,9 +208,9 @@ def get_quality_trend(user, start_date=None, end_date=None):
     Get quality vs non-quality trend over time (grouped by day)
     """
     try:
-        # Base queryset - only activated sim cards for this admin
+        # Base queryset - only activated sim cards whose batches belong to this admin
         base_query = SimCard.objects.filter(
-            admin=user,
+            batch__admin=user,
             activation_date__isnull=False
         )
 
@@ -275,9 +275,9 @@ def get_teams_list(user, start_date=None, end_date=None):
 
         # For each team, count activated connections with date filters
         for team in teams_queryset:
-            # Build connection count query
+            # Build connection count query - filter by batch admin
             connection_query = SimCard.objects.filter(
-                admin=user,
+                batch__admin=user,
                 team__id=team['id'],
                 activation_date__isnull=False
             )
@@ -299,9 +299,9 @@ def get_teams_list(user, start_date=None, end_date=None):
                 'total_connections': count
             })
 
-        # Add unassigned connections
+        # Add unassigned connections - filter by batch admin
         unassigned_query = SimCard.objects.filter(
-            admin=user,
+            batch__admin=user,
             team__isnull=True,
             activation_date__isnull=False
         )
@@ -341,9 +341,9 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None):
     Called after team list is loaded for progressive loading
     """
     try:
-        # Base queryset - only activated sim cards for this admin
+        # Base queryset - only activated sim cards whose batches belong to this admin
         base_query = SimCard.objects.filter(
-            admin=user,
+            batch__admin=user,
             activation_date__isnull=False
         )
 
