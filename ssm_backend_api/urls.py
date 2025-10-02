@@ -16,10 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from ssm.views import health_check, home
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', include('ssm.dashboard_urls')),
     path('api/', include('ssm.api_urls')),
-    path('', include('ssm.urls')),
+    path('health/', health_check, name='health'),
+    path('', home, name='home'),
 ]

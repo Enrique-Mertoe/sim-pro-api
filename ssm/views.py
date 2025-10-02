@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
@@ -563,3 +563,15 @@ class PasswordResetRequestViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return PasswordResetRequest.objects.all().select_related('user').order_by('-created_at')
+
+
+@api_view(['GET'])
+@permission_classes([])
+def health_check(request):
+    return Response({'status': 'ok'})
+
+
+@api_view(['GET'])
+@permission_classes([])
+def home(request):
+    return Response({'message': 'SSM Backend API', 'version': '1.0.0'})
