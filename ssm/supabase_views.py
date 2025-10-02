@@ -144,7 +144,6 @@ def auth_signup(request):
 @require_http_methods(["POST"])
 def auth_login(request):
     """POST /api/auth/login"""
-    print("ooo")
     try:
         data = json.loads(request.body)
         email = data.get('email')
@@ -191,8 +190,6 @@ def auth_login(request):
             status=400
         )
     except Exception as e:
-        raise
-
         logger.error(f"Auth login error: {e}")
         return supabase_response(
             error={'message': str(e)},
