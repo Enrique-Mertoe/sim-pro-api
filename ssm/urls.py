@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .views import home
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet)
@@ -23,9 +24,7 @@ router.register(r'notifications', views.NotificationViewSet)
 router.register(r'password-reset-requests', views.PasswordResetRequestViewSet)
 
 urlpatterns = [
-    # Django REST Framework endpoints (for admin/advanced usage)
-    path('api/v1/', include(router.urls)),
-    
     # Supabase-compatible endpoints (for SDK usage)
-    path('api/', include('ssm.supabase_urls')),
+    path('api/v2/', include('ssm.supabase_urls')),
+    path('', home, name='home'),
 ]

@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', include('ssm.dashboard_urls')),
     path('api/', include('ssm.api_urls')),
+    path('', include('ssm.urls')),
     path('health/', health_check, name='health'),
-    path('', home, name='home'),
+
 ]

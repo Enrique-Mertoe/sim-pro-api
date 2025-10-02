@@ -569,7 +569,7 @@ class PasswordResetRequestViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([])
 def health_check(request):
-    return Response({'status': 'ok'})
+    return JsonResponse({'status': 'ok'})
 
 
 @api_view(['GET'])
