@@ -24,6 +24,7 @@ from .base_models import (
     TeamGroupMembership,
     AdminOnboarding,
     BusinessInfo,
+    UserSettings,
 )
 
 # Import all models from shop_management_models
@@ -64,6 +65,7 @@ __all__ = [
     'PasswordResetRequest',
     'AdminOnboarding',
     'BusinessInfo',
+    'UserSettings',
 
     # Shop management models
     'Shop',

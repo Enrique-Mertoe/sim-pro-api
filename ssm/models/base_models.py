@@ -599,3 +599,46 @@ class BusinessInfo(models.Model):
 
     def __str__(self):
         return self.dealer_code
+
+
+class UserSettings(models.Model):
+    """User preferences and settings"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Notification Preferences
+    email_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=True)
+    push_notifications = models.BooleanField(default=True)
+    marketing_emails = models.BooleanField(default=False)
+    security_alerts = models.BooleanField(default=True)
+    report_notifications = models.BooleanField(default=True)
+    team_updates = models.BooleanField(default=True)
+
+    # Privacy Settings
+    profile_visibility = models.CharField(max_length=20, default='team_only',
+        choices=[('public', 'Public'), ('private', 'Private'), ('team_only', 'Team Only')])
+    show_email = models.BooleanField(default=False)
+    show_phone = models.BooleanField(default=False)
+    data_sharing = models.BooleanField(default=False)
+    activity_tracking = models.BooleanField(default=True)
+
+    # Security Settings
+    two_factor_enabled = models.BooleanField(default=False)
+    session_timeout = models.IntegerField(default=30)
+    login_alerts = models.BooleanField(default=True)
+
+    # Account Settings
+    language = models.CharField(max_length=10, default='en')
+    timezone = models.CharField(max_length=50, default='Africa/Nairobi')
+    date_format = models.CharField(max_length=20, default='DD/MM/YYYY')
+    theme = models.CharField(max_length=10, default='auto',
+        choices=[('light', 'Light'), ('dark', 'Dark'), ('auto', 'Auto')])
+
+    class Meta:
+        db_table = 'user_settings'
+
+    def __str__(self):
+        return f"Settings for {self.user.full_name}"

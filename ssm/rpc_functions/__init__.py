@@ -11,6 +11,7 @@ from .team_membership_functions import functions as team_membership_functions
 from .onboarding_functions import functions as onboarding_functions
 from .analytics_functions import functions as analytics_functions
 from .reports_functions import functions as reports_functions
+from .settings_functions import functions as settings_functions
 
 # Combine all function registries
 functions = {
@@ -23,4 +24,5 @@ functions = {
     **onboarding_functions,
     **analytics_functions,
     **reports_functions,
+    **settings_functions,
 }

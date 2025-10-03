@@ -1243,13 +1243,13 @@ def auth_verify_email(request):
             )
 
         try:
-
+            from django.db.models import Q
             # Find user with this confirmation token
-            auth_user = SSMAuthUser.objects.get(
-                confirmation_token=token,
-                email_confirmed=False,
-                email_confirmed_at=None,
-            )
+            auth_user = SSMAuthUser.objects.filter(
+                confirmation_token=token
+            ).filter(
+                Q(email_confirmed=False) | Q(email_confirmed_at=None)
+            ).first()
 
             print("ssss", auth_user)
 
