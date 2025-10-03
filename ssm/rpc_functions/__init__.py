@@ -12,6 +12,7 @@ from .onboarding_functions import functions as onboarding_functions
 from .analytics_functions import functions as analytics_functions
 from .reports_functions import functions as reports_functions
 from .settings_functions import functions as settings_functions
+from .admin_rpc_functions import functions as admin_functions
 
 # Combine all function registries
 functions = {
@@ -25,4 +26,5 @@ functions = {
     **analytics_functions,
     **reports_functions,
     **settings_functions,
+    **admin_functions
 }
