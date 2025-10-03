@@ -174,11 +174,9 @@ def bulk_import_users(user, **kwargs):
             else:
                 created_at = timezone.now()
 
-            # Determine password (email > username > full_name)
-            password = 'defaultpassword123'
 
             # Create SSMAuthUser data
-            password = make_password(password)
+            password = make_password(None)
             auth_user_data = {
                 'id': user_id,
                 'email': email or username or None,
