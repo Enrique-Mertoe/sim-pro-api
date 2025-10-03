@@ -1251,8 +1251,6 @@ def auth_verify_email(request):
                 Q(email_confirmed=False) | Q(email_confirmed_at=None)
             ).first()
 
-            print("ssss", auth_user)
-
             # Check if token is expired (24 hours)
             if auth_user.confirmation_sent_at:
                 expiry_time = auth_user.confirmation_sent_at + timedelta(hours=24)
