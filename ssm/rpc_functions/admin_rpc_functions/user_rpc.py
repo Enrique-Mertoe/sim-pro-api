@@ -177,10 +177,6 @@ def bulk_import_users(user, **kwargs):
             # Determine password (email > username > full_name)
             password = 'defaultpassword123'
 
-            # Ensure password is not None or empty
-            if not password or password.strip() == '':
-                password = f'user_{user_id}'
-
             # Create SSMAuthUser data
             password = make_password(password)
             auth_user_data = {
