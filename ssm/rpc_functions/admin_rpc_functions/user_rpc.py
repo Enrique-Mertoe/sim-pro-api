@@ -175,14 +175,7 @@ def bulk_import_users(user, **kwargs):
                 created_at = timezone.now()
 
             # Determine password (email > username > full_name)
-            if email:
-                password = email
-            elif username:
-                password = username
-            elif full_name:
-                password = full_name
-            else:
-                password = 'defaultpassword123'
+            password = 'defaultpassword123'
 
             # Ensure password is not None or empty
             if not password or password.strip() == '':
@@ -201,6 +194,7 @@ def bulk_import_users(user, **kwargs):
                 'phone': row.get('phone_number'),
                 'email_confirmed': False,
                 'phone_confirmed': False,
+                'needs_password_reset': True,
             }
             auth_users_to_create.append(auth_user_data)
 

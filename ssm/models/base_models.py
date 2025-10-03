@@ -12,6 +12,7 @@ class SSMAuthUser(AbstractUser):
 
     # Supabase-compatible authentication fields
     email_confirmed = models.BooleanField(default=False)
+    needs_password_reset = models.BooleanField(default=False)
     phone_confirmed = models.BooleanField(default=False)
     email_confirmed_at = models.DateTimeField(null=True, blank=True)
     phone_confirmed_at = models.DateTimeField(null=True, blank=True)
