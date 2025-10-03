@@ -39,6 +39,12 @@ DEBUG = config("APP_DEBUG", cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="",
                        cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
 
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="",
+    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()]
+)
+
 # Application definition
 
 INSTALLED_APPS = [
