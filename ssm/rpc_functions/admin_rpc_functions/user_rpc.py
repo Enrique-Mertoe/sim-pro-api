@@ -184,11 +184,15 @@ def bulk_import_users(user, **kwargs):
             else:
                 password = 'defaultpassword123'
 
+            # Ensure password is not None or empty
+            if not password or password.strip() == '':
+                password = f'user_{user_id}'
+
             # Create SSMAuthUser data
             auth_user_data = {
                 'id': user_id,
                 'email': email or username or None,
-                'username': username or email,
+                'username': username or email or f'user_{user_id}',
                 'password': make_password(password),
                 'is_active': row.get('is_active', 'true').lower() == 'true',
                 'is_staff': False,
