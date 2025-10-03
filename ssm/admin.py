@@ -114,70 +114,80 @@ class SSMAuthUserAdmin(admin.ModelAdmin):
 
 @admin.register(TeamGroup)
 class TeamGroupAdmin(admin.ModelAdmin):
-    list_display = ['name', 'created_by', 'created_at']
+    list_display = ['name', 'team', 'admin', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
     search_fields = ['name']
 
 @admin.register(TeamGroupMembership)
 class TeamGroupMembershipAdmin(admin.ModelAdmin):
-    list_display = ['group', 'team', 'added_by', 'added_at']
-    list_filter = ['added_at']
+    list_display = ['group', 'user', 'joined_at']
+    list_filter = ['joined_at']
+    search_fields = ['group__name', 'user__full_name']
 
 @admin.register(LotMetadata)
 class LotMetadataAdmin(admin.ModelAdmin):
-    list_display = ['lot_id', 'created_at']
-    search_fields = ['lot_id']
+    list_display = ['lot_number', 'batch', 'assigned_team', 'status', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['lot_number', 'batch__batch_id']
 
 @admin.register(AdminOnboarding)
 class AdminOnboardingAdmin(admin.ModelAdmin):
-    list_display = ['user', 'status', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['admin', 'onboarding_completed', 'billing_active', 'created_at']
+    list_filter = ['onboarding_completed', 'billing_active', 'created_at']
+    search_fields = ['admin__full_name']
 
 @admin.register(BusinessInfo)
 class BusinessInfoAdmin(admin.ModelAdmin):
-    list_display = ['user', 'business_name', 'created_at']
-    search_fields = ['business_name', 'user__full_name']
+    list_display = ['admin', 'dealer_code', 'contact_phone', 'created_at']
+    search_fields = ['dealer_code', 'admin__full_name']
 
 @admin.register(UserSettings)
 class UserSettingsAdmin(admin.ModelAdmin):
-    list_display = ['user', 'updated_at']
+    list_display = ['user', 'theme', 'language', 'two_factor_enabled', 'updated_at']
+    list_filter = ['theme', 'two_factor_enabled']
     search_fields = ['user__full_name']
 
 @admin.register(Shop)
 class ShopAdmin(admin.ModelAdmin):
-    list_display = ['name', 'manager', 'region', 'is_active', 'created_at']
-    list_filter = ['is_active', 'region', 'created_at']
-    search_fields = ['name', 'region']
+    list_display = ['shop_code', 'shop_name', 'shop_manager', 'status', 'region', 'created_at']
+    list_filter = ['status', 'shop_type', 'region', 'created_at']
+    search_fields = ['shop_code', 'shop_name', 'region']
 
 @admin.register(ShopInventory)
 class ShopInventoryAdmin(admin.ModelAdmin):
-    list_display = ['shop', 'quantity', 'updated_at']
-    list_filter = ['shop', 'updated_at']
+    list_display = ['shop', 'sim_card', 'status', 'allocated_date', 'sold_date']
+    list_filter = ['status', 'shop', 'allocated_date']
+    search_fields = ['shop__shop_code', 'sim_card__serial_number']
 
 @admin.register(ShopTransfer)
 class ShopTransferAdmin(admin.ModelAdmin):
-    list_display = ['source_shop', 'destination_shop', 'requested_by', 'status', 'created_at']
+    list_display = ['transfer_reference', 'source_shop', 'destination_shop', 'requested_by', 'status', 'created_at']
     list_filter = ['status', 'created_at']
+    search_fields = ['transfer_reference', 'source_shop__shop_code', 'destination_shop__shop_code']
 
 @admin.register(ShopSales)
 class ShopSalesAdmin(admin.ModelAdmin):
-    list_display = ['shop', 'sold_by', 'quantity', 'created_at']
-    list_filter = ['shop', 'created_at']
+    list_display = ['sale_reference', 'shop', 'sold_by', 'customer_name', 'net_amount', 'status', 'created_at']
+    list_filter = ['status', 'shop', 'payment_method', 'created_at']
+    search_fields = ['sale_reference', 'customer_name', 'customer_phone']
 
 @admin.register(ShopPerformance)
 class ShopPerformanceAdmin(admin.ModelAdmin):
-    list_display = ['shop', 'period', 'total_sales', 'created_at']
-    list_filter = ['shop', 'period']
+    list_display = ['shop', 'period_type', 'period_start', 'period_end', 'total_sales', 'total_revenue']
+    list_filter = ['shop', 'period_type', 'period_start']
+    search_fields = ['shop__shop_code']
 
 @admin.register(ShopTarget)
 class ShopTargetAdmin(admin.ModelAdmin):
-    list_display = ['shop', 'target_amount', 'period_start', 'period_end']
-    list_filter = ['shop', 'period_start']
+    list_display = ['shop', 'target_type', 'target_value', 'current_value', 'period_start', 'period_end', 'is_achieved']
+    list_filter = ['shop', 'target_type', 'period_type', 'is_achieved']
+    search_fields = ['shop__shop_code']
 
 @admin.register(ShopAuditLog)
 class ShopAuditLogAdmin(admin.ModelAdmin):
-    list_display = ['shop', 'action_type', 'performed_by', 'created_at']
+    list_display = ['shop', 'action_type', 'user', 'created_at']
     list_filter = ['action_type', 'created_at']
-    search_fields = ['shop__name', 'action_type']
+    search_fields = ['shop__shop_code', 'user__full_name', 'action_type']
 
 admin.site.register(ForumLike)
 admin.site.register(TaskStatus)
