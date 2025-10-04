@@ -19,6 +19,8 @@ def get_connections_analytics(user, start_date=None, end_date=None):
             activation_date__isnull=False
         )
 
+        print("ssss",base_query)
+
         # Apply date filters if provided
         if start_date:
             start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
@@ -32,8 +34,8 @@ def get_connections_analytics(user, start_date=None, end_date=None):
         total_connections = base_query.count()
 
         # Quality vs Non-Quality
-        quality_count = base_query.filter(quality='QUALITY').count()
-        non_quality_count = base_query.filter(quality='NONQUALITY').count()
+        quality_count = base_query.filter(quality='Y').count()
+        non_quality_count = base_query.filter(quality='N').count()
 
         # From Picklist (batch not null) vs Extra (batch null)
         from_picklist = base_query.filter(batch__isnull=False).count()

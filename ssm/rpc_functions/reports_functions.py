@@ -97,10 +97,10 @@ def parse_safaricom_report(user, file_base64: str):
 
         # Validate required columns
         required_columns = [
-            'TM Date', 'Sim Serial Number', 'Top Up Amount',
+            'TM Date','ID Date', 'Sim Serial Number', 'Top Up Amount',
             'Cumulative Usage', 'Quality'
         ]
-        print("cols",df.columns)
+        print("cols", df.columns)
 
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
@@ -126,10 +126,28 @@ def parse_safaricom_report(user, file_base64: str):
         # Parse data into records
         records = []
         for _, row in df.iterrows():
+            # Format TM Date: '2025-04-21T00:00' -> '2025-04-21'
+            tm_date_raw = row.get('TM Date', '')
+            tm_date = str(tm_date_raw).split('T')[0] if tm_date_raw else ''
+
+            # Format ID Date: '20250421' -> '2025-04-21'
+            id_date_raw = str(row.get('ID Date', '')).strip()
+            id_date = ''
+            if id_date_raw and len(id_date_raw) == 8 and id_date_raw.isdigit():
+                # Convert '20250421' to '2025-04-21'
+                id_date = f"{id_date_raw[0:4]}-{id_date_raw[4:6]}-{id_date_raw[6:8]}"
+            else:
+                id_date = id_date_raw
+
+            # Format Top Up Date similar to TM Date
+            top_up_date_raw = row.get('Top Up Date', '')
+            top_up_date = str(top_up_date_raw).split('T')[0] if top_up_date_raw else ''
+
             record = {
-                'tm_date': str(row.get('TM Date', '')),
+                'tm_date': tm_date,
+                'id_date': id_date,
                 'serial_number': str(row.get('Sim Serial Number', '')).strip(),
-                'top_up_date': str(row.get('Top Up Date', '')),
+                'top_up_date': top_up_date,
                 'top_up_amount': float(row.get('Top Up Amount', 0)),
                 'agent_msisdn': str(row.get('Agent MSISDN', '')),
                 'ba': str(row.get('BA', '-')),
@@ -345,7 +363,10 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                         'team': default_team,
                         'batch': batch,
                         'lot': lot.lot_number,
-                        'registered_by_user': user
+                        "activation_date": record['activation_date'],
+                        "usage": record['usage'],
+                        "top_up_amount": record['top_up_amount'],
+                        "quality": record['quality'],
                     }
                 )
 
@@ -381,8 +402,6 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
 
     except Exception as e:
         raise Exception(f'Failed to process chunk {chunk_index}: {str(e)}')
-
-
 
 
 functions = {
