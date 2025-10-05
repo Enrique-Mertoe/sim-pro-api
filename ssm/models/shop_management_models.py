@@ -475,3 +475,446 @@ class ShopAuditLog(models.Model):
 
     def __str__(self):
         return f"{self.shop.shop_code} - {self.action_type} by {self.user.full_name}"
+
+
+class ProductCategory(models.Model):
+    """
+    Model for product categories (TVs, Phones, Accessories, etc.)
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(null=True, blank=True)
+    parent_category = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
+                                       related_name='subcategories')
+
+    # Display settings
+    icon = models.CharField(max_length=50, null=True, blank=True)
+    color = models.CharField(max_length=20, null=True, blank=True)
+    display_order = models.IntegerField(default=0)
+
+    is_active = models.BooleanField(default=True)
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_product_categories')
+
+    class Meta:
+        db_table = 'product_categories'
+        verbose_name_plural = 'Product Categories'
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['parent_category']),
+        ]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class Supplier(models.Model):
+    """
+    Model for supplier records
+    """
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('suspended', 'Suspended'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Basic Information
+    supplier_code = models.CharField(max_length=50, unique=True)
+    supplier_name = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    # Contact Information
+    contact_person = models.CharField(max_length=200, null=True, blank=True)
+    phone_number = models.CharField(max_length=20)
+    email = models.EmailField(null=True, blank=True)
+    alternative_phone = models.CharField(max_length=20, null=True, blank=True)
+
+    # Address
+    address = models.TextField()
+    city = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
+
+    # Business Information
+    business_registration_number = models.CharField(max_length=100, null=True, blank=True)
+    tax_pin = models.CharField(max_length=50, null=True, blank=True)
+
+    # Financial Terms
+    payment_terms = models.CharField(max_length=100, null=True, blank=True,
+                                     help_text="e.g., Net 30, Net 60")
+    credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Rating and Performance
+    rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True,
+                                help_text="Rating out of 5")
+    total_purchases = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    # Metadata
+    notes = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)
+
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_suppliers')
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_suppliers')
+
+    class Meta:
+        db_table = 'suppliers'
+        indexes = [
+            models.Index(fields=['supplier_code']),
+            models.Index(fields=['status']),
+            models.Index(fields=['supplier_name']),
+        ]
+
+    def __str__(self):
+        return f"{self.supplier_code} - {self.supplier_name}"
+
+
+class Product(models.Model):
+    """
+    Model for products (TVs, Phones, Accessories, etc.)
+    """
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('discontinued', 'Discontinued'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Basic Information
+    product_code = models.CharField(max_length=50, unique=True)
+    barcode = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    product_name = models.CharField(max_length=200)
+    model = models.CharField(max_length=100, null=True, blank=True)
+    brand = models.CharField(max_length=100, null=True, blank=True)
+
+    category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, related_name='products')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    # Description and Specifications
+    description = models.TextField(null=True, blank=True)
+    specifications = models.JSONField(default=dict, help_text="Product technical specifications")
+
+    # Pricing
+    cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0,
+                                    help_text="Purchase/cost price")
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    retail_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                      help_text="Recommended retail price")
+
+    # Stock Information
+    total_stock = models.IntegerField(default=0, help_text="Total stock across all shops")
+    reorder_level = models.IntegerField(default=0, help_text="Minimum stock level before alert")
+    reorder_quantity = models.IntegerField(default=0, help_text="Quantity to reorder")
+
+    # Supplier
+    default_supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,
+                                        related_name='supplied_products')
+
+    # Media
+    image_url = models.URLField(null=True, blank=True)
+    thumbnail_url = models.URLField(null=True, blank=True)
+    images = models.JSONField(default=list, help_text="Array of image URLs")
+
+    # Dimensions and Weight (for shipping)
+    weight = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+                                help_text="Weight in kg")
+    dimensions = models.JSONField(default=dict, null=True, blank=True,
+                                 help_text="Length, width, height in cm")
+
+    # Warranty and Support
+    warranty_period = models.IntegerField(null=True, blank=True, help_text="Warranty period in months")
+    warranty_details = models.TextField(null=True, blank=True)
+
+    # Metadata
+    metadata = models.JSONField(default=dict)
+    notes = models.TextField(null=True, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_products')
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_products')
+
+    class Meta:
+        db_table = 'products'
+        indexes = [
+            models.Index(fields=['product_code']),
+            models.Index(fields=['barcode']),
+            models.Index(fields=['category']),
+            models.Index(fields=['status']),
+            models.Index(fields=['product_name']),
+        ]
+
+    def __str__(self):
+        return f"{self.product_code} - {self.product_name}"
+
+
+class ShopProductInventory(models.Model):
+    """
+    Model to track product inventory at shop level
+    """
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('reserved', 'Reserved'),
+        ('damaged', 'Damaged'),
+        ('returned', 'Returned'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='product_inventory')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='shop_inventory')
+
+    # Stock levels
+    quantity = models.IntegerField(default=0)
+    reserved_quantity = models.IntegerField(default=0)
+    available_quantity = models.IntegerField(default=0)
+
+    # Pricing (can override product pricing at shop level)
+    shop_cost_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    shop_selling_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    # Stock alerts
+    low_stock_alert = models.BooleanField(default=False)
+    min_stock_level = models.IntegerField(default=0)
+
+    # Location in shop
+    shelf_location = models.CharField(max_length=50, null=True, blank=True)
+    bin_location = models.CharField(max_length=50, null=True, blank=True)
+
+    last_stock_count_date = models.DateTimeField(null=True, blank=True)
+    last_stock_count_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                           related_name='counted_inventory')
+
+    class Meta:
+        db_table = 'shop_product_inventory'
+        unique_together = ['shop', 'product']
+        indexes = [
+            models.Index(fields=['shop', 'product']),
+            models.Index(fields=['low_stock_alert']),
+            models.Index(fields=['available_quantity']),
+        ]
+
+    def __str__(self):
+        return f"{self.shop.shop_code} - {self.product.product_name} (Qty: {self.quantity})"
+
+
+class StockMovement(models.Model):
+    """
+    Model to track all stock movements (in/out)
+    """
+    MOVEMENT_TYPES = [
+        ('stock_in', 'Stock In'),
+        ('stock_out', 'Stock Out'),
+        ('sale', 'Sale'),
+        ('return', 'Return'),
+        ('transfer_in', 'Transfer In'),
+        ('transfer_out', 'Transfer Out'),
+        ('adjustment', 'Adjustment'),
+        ('damage', 'Damage'),
+        ('expired', 'Expired'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Reference
+    reference_number = models.CharField(max_length=50, unique=True)
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES)
+    movement_date = models.DateTimeField(auto_now_add=True)
+
+    # Shop and Product
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='stock_movements')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
+
+    # Quantity
+    quantity = models.IntegerField()
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    # Before and After stock
+    stock_before = models.IntegerField()
+    stock_after = models.IntegerField()
+
+    # Supplier (for stock in)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='stock_movements')
+
+    # Related documents
+    purchase_order_number = models.CharField(max_length=50, null=True, blank=True)
+    invoice_number = models.CharField(max_length=50, null=True, blank=True)
+    delivery_note = models.CharField(max_length=50, null=True, blank=True)
+
+    # User tracking
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_stock_movements')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='approved_stock_movements')
+
+    # Notes
+    notes = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'stock_movements'
+        indexes = [
+            models.Index(fields=['reference_number']),
+            models.Index(fields=['shop', 'movement_date']),
+            models.Index(fields=['product', 'movement_date']),
+            models.Index(fields=['movement_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.reference_number} - {self.movement_type} - {self.product.product_name}"
+
+
+class PurchaseOrder(models.Model):
+    """
+    Model for purchase orders to suppliers
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('ordered', 'Ordered'),
+        ('partial', 'Partially Received'),
+        ('received', 'Received'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # PO Details
+    po_number = models.CharField(max_length=50, unique=True)
+    po_date = models.DateField()
+    expected_delivery_date = models.DateField(null=True, blank=True)
+
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='purchase_orders')
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='purchase_orders')
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+
+    # Financial
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    shipping_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Items (stored as JSON for simplicity)
+    items = models.JSONField(default=list, help_text="Array of order items")
+
+    # Approval
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='approved_purchase_orders')
+    approval_date = models.DateTimeField(null=True, blank=True)
+
+    # Delivery
+    actual_delivery_date = models.DateField(null=True, blank=True)
+    delivery_notes = models.TextField(null=True, blank=True)
+
+    # User tracking
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_purchase_orders')
+
+    notes = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'purchase_orders'
+        indexes = [
+            models.Index(fields=['po_number']),
+            models.Index(fields=['supplier', 'po_date']),
+            models.Index(fields=['shop', 'status']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"{self.po_number} - {self.supplier.supplier_name}"
+
+
+class ProductSale(models.Model):
+    """
+    Model to track product sales transactions
+    """
+    PAYMENT_METHODS = [
+        ('cash', 'Cash'),
+        ('card', 'Card'),
+        ('mobile_money', 'Mobile Money'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('credit', 'Credit'),
+    ]
+
+    STATUS_CHOICES = [
+        ('completed', 'Completed'),
+        ('pending', 'Pending'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Sale Information
+    sale_number = models.CharField(max_length=50, unique=True)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='product_sales')
+    sale_date = models.DateTimeField(auto_now_add=True)
+
+    # Items (can be multiple products)
+    items = models.JSONField(default=list, help_text="Array of sold items with product, quantity, price")
+
+    # Customer Information (optional)
+    customer_name = models.CharField(max_length=200, null=True, blank=True)
+    customer_phone = models.CharField(max_length=20, null=True, blank=True)
+    customer_email = models.EmailField(null=True, blank=True)
+
+    # Financial
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Payment
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cash')
+    payment_reference = models.CharField(max_length=100, null=True, blank=True)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2)
+    change_given = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='completed')
+    receipt_number = models.CharField(max_length=50, null=True, blank=True)
+
+    # User
+    sold_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_sales')
+
+    # Refund
+    refund_date = models.DateTimeField(null=True, blank=True)
+    refund_reason = models.TextField(null=True, blank=True)
+    refunded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='refunded_product_sales')
+
+    notes = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'product_sales'
+        indexes = [
+            models.Index(fields=['sale_number']),
+            models.Index(fields=['shop', 'sale_date']),
+            models.Index(fields=['status']),
+            models.Index(fields=['customer_phone']),
+        ]
+
+    def __str__(self):
+        return f"{self.sale_number} - {self.shop.shop_code} - KES {self.total_amount}"
