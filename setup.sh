@@ -105,45 +105,7 @@ check_root() {
     fi
 }
 
-choose_install_directory() {
-    print_header "Installation Directory"
 
-    echo "Where would you like to install the application?"
-    echo ""
-    echo "  1) /opt/ssm_api_app (Recommended for production)"
-    echo "  2) Current directory: $SOURCE_DIR (Development only)"
-    echo ""
-
-    read -p "Choose installation directory [1]: " dir_choice
-    dir_choice=${dir_choice:-1}
-
-    if [[ "$dir_choice" == "1" ]]; then
-        APP_DIR="/opt/ssm_api_app"
-        USE_CUSTOM_DIR=false
-        print_success "Installing to: $APP_DIR"
-
-        # Copy files if not already there
-        if [[ "$SOURCE_DIR" != "$APP_DIR" ]]; then
-            copy_application_files
-        fi
-    elif [[ "$dir_choice" == "2" ]]; then
-        APP_DIR="$SOURCE_DIR"
-        USE_CUSTOM_DIR=true
-        print_warning "Installing to: $APP_DIR"
-
-        if [[ "$APP_DIR" == /root/* ]]; then
-            print_warning "Installing in /root directory is NOT recommended for production!"
-            print_warning "Service will need to run as root user"
-        fi
-    else
-        print_error "Invalid choice"
-        exit 1
-    fi
-
-    # Update ENV_FILE path
-    ENV_FILE="$APP_DIR/.env"
-    VENV_DIR="$APP_DIR/venv"
-}
 
 copy_application_files() {
     print_header "Copying Application Files"
@@ -958,7 +920,6 @@ execute_setup() {
     # Always run these checks first
     check_root
     detect_os
-    choose_install_directory
     check_env_file
     load_env_credentials
 
