@@ -7,6 +7,9 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Reserved IP configuration
+RESERVED_IP_FILE="/etc/server_reserved_ip"
+
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -203,10 +206,45 @@ EOF
 }
 
 
+# Function to get server IP (with reserved IP support)
+get_server_ip() {
+    local detected_ip=$(curl -s ifconfig.me)
+    local saved_ip=""
+
+    if [ -f "$RESERVED_IP_FILE" ]; then
+        saved_ip=$(cat "$RESERVED_IP_FILE")
+    fi
+
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}IP Configuration${NC}"
+    echo -e "${BLUE}========================================${NC}"
+
+    if [ -n "$saved_ip" ]; then
+        echo -e "${GREEN}Stored reserved IP: $saved_ip${NC}"
+        read -p "Use this IP? (y/n): " use_saved
+        if [[ "$use_saved" =~ ^[Yy]$ ]]; then
+            echo "$saved_ip"
+            return
+        fi
+    fi
+
+    echo -e "${YELLOW}Detected public IP: $detected_ip${NC}"
+    read -p "Use this detected IP? (y/n): " use_detected
+    if [[ "$use_detected" =~ ^[Yy]$ ]]; then
+        echo "$detected_ip" | sudo tee "$RESERVED_IP_FILE" >/dev/null
+        echo "$detected_ip"
+    else
+        read -p "Enter your reserved/static IP address: " manual_ip
+        echo "$manual_ip" | sudo tee "$RESERVED_IP_FILE" >/dev/null
+        echo "$manual_ip"
+    fi
+}
+
 # Function to check DNS records
 check_dns_records() {
     local domain=$1
-    local server_ip=$(curl -s ifconfig.me)
+    local server_ip=$(get_server_ip)
 
     echo -e "${YELLOW}Checking DNS records for $domain...${NC}"
     echo -e "${BLUE}Your server's public IP address is: $server_ip${NC}"
@@ -248,7 +286,14 @@ check_dns_records() {
 # Function to verify DNS propagation
 verify_dns_propagation() {
     local domain=$1
-    local server_ip=$(curl -s ifconfig.me)
+    # Use the same IP as earlier (from check_dns_records)
+    local server_ip
+    if [ -f "$RESERVED_IP_FILE" ]; then
+        server_ip=$(cat "$RESERVED_IP_FILE")
+    else
+        read -p "Enter your reserved/static IP address: " server_ip
+        echo "$server_ip" | sudo tee "$RESERVED_IP_FILE" >/dev/null
+    fi
     local max_attempts=12
     local attempt=1
     local wait_time=60  # 1 minute
