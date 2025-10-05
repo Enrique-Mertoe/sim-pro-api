@@ -759,6 +759,15 @@ setup_systemd_services() {
     # Detect wsgi module
     local wsgi_module=$(echo "$DJANGO_SETTINGS_MODULE" | cut -d'.' -f1).wsgi:application
 
+    # Check if APP_DIR is in /root and adjust service accordingly
+    local service_user="$APP_USER"
+    if [[ "$APP_DIR" == /root/* ]]; then
+        print_warning "Application is in /root directory"
+        print_status "Running service as root for /root access"
+        print_warning "SECURITY NOTE: For production, move app to /opt/ssm_api_app"
+        service_user="root"
+    fi
+
     # Django application service
     cat > "$SYSTEMD_DIR/ssm-api.service" << EOF
 [Unit]
@@ -768,8 +777,8 @@ Wants=mysql.service
 
 [Service]
 Type=exec
-User=$APP_USER
-Group=$APP_USER
+User=$service_user
+Group=$service_user
 WorkingDirectory=$APP_DIR
 Environment=PATH=$VENV_DIR/bin
 Environment=DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
@@ -787,6 +796,9 @@ EOF
     systemctl enable ssm-api
 
     print_success "Systemd service configured with $DJANGO_SETTINGS_MODULE"
+    if [[ "$service_user" == "root" ]]; then
+        print_warning "Service will run as root (required for /root access)"
+    fi
 }
 
 initialize_database() {
