@@ -34,8 +34,15 @@ DB_USER=""
 DB_PASSWORD=""
 DB_PORT="3306"
 
+# MySQL root credentials for database creation
+MYSQL_ROOT_USER="root"
+MYSQL_ROOT_PASSWORD=""
+
 # Environment variables from .env
 ENV_FILE="$APP_DIR/.env"
+
+# Django settings module
+DJANGO_SETTINGS_MODULE=""
 
 print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -96,37 +103,75 @@ check_root() {
 
 check_env_file() {
     print_header "Checking .env file"
-    
+
     if [[ ! -f "$ENV_FILE" ]]; then
         print_error ".env file not found at $ENV_FILE"
         print_error "Setup cannot continue without .env file"
         print_status "Please create .env file with required environment variables"
         exit 1
     fi
-    
+
     print_success ".env file found"
-    
-    # Source the .env file
-    set -a
-    source "$ENV_FILE"
-    set +a
+}
+
+load_env_credentials() {
+    print_header "Loading Database Credentials"
+
+    # Parse .env file manually to avoid variable collision
+    local env_db_host=$(grep "^DB_HOST=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+    local env_db_name=$(grep "^DB_NAME=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+    local env_db_user=$(grep "^DB_USER=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+    local env_db_password=$(grep "^DB_PASSWORD=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+    local env_db_port=$(grep "^DB_PORT=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+
+    # Check if credentials exist in .env
+    if [[ -n "$env_db_host" && -n "$env_db_name" && -n "$env_db_user" && -n "$env_db_password" ]]; then
+        print_success "Database credentials found in .env file"
+        echo ""
+        echo "Current credentials in .env:"
+        echo "  Host: $env_db_host"
+        echo "  Database: $env_db_name"
+        echo "  User: $env_db_user"
+        echo "  Port: ${env_db_port:-3306}"
+        echo ""
+
+        read -p "Use these credentials? (Y/n): " use_env
+        if [[ ! "$use_env" =~ ^[Nn]$ ]]; then
+            # Use .env credentials
+            DB_HOST="$env_db_host"
+            DB_NAME="$env_db_name"
+            DB_USER="$env_db_user"
+            DB_PASSWORD="$env_db_password"
+            DB_PORT="${env_db_port:-3306}"
+            print_success "Using credentials from .env file"
+            return 0
+        else
+            print_status "You chose to enter new credentials"
+            get_database_credentials
+            update_env_credentials
+        fi
+    else
+        print_warning "No complete database credentials in .env file"
+        print_status "Please enter database credentials"
+        get_database_credentials
+        update_env_credentials
+    fi
 }
 
 get_database_credentials() {
-    print_header "Database Configuration"
-    
-    echo "Please enter MySQL database credentials:"
     echo ""
-    
+    echo "Enter MySQL database credentials:"
+    echo ""
+
     read -p "Database Host [localhost]: " input_host
     DB_HOST=${input_host:-localhost}
-    
+
     read -p "Database Name [ssm_api_app]: " input_name
     DB_NAME=${input_name:-ssm_api_app}
-    
+
     read -p "Database User [ssm_user]: " input_user
     DB_USER=${input_user:-ssm_user}
-    
+
     read -s -p "Database Password: " DB_PASSWORD
     echo ""
     while [[ -z "$DB_PASSWORD" ]]; do
@@ -134,97 +179,74 @@ get_database_credentials() {
         read -s -p "Database Password: " DB_PASSWORD
         echo ""
     done
-    
+
     read -p "Database Port [3306]: " input_port
     DB_PORT=${input_port:-3306}
-    
+
     print_success "Database credentials collected"
+}
+
+get_mysql_root_credentials() {
+    print_header "MySQL Root Credentials"
+
+    echo "Enter MySQL root credentials to create database and user:"
+    echo "(Press Enter to skip if database and user already exist)"
+    echo ""
+
+    read -p "MySQL Root User [root]: " input_root_user
+    MYSQL_ROOT_USER=${input_root_user:-root}
+
+    read -s -p "MySQL Root Password (leave empty if no password): " MYSQL_ROOT_PASSWORD
+    echo ""
 }
 
 verify_database_connection() {
     print_header "Verifying database connection"
-    
+
     if command -v mysql &> /dev/null; then
-        if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" &>/dev/null; then
-            print_success "Database connection successful"
+        if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" &>/dev/null 2>&1; then
+            print_success "Database connection successful with app user"
+            return 0
         else
-            print_error "Database connection failed"
-            print_error "Please check your credentials and try again"
-            exit 1
+            print_warning "Cannot connect with app user credentials"
+            print_status "Database and user may need to be created"
+            return 1
         fi
     else
         print_warning "MySQL client not found, skipping connection test"
-    fi
-}
-
-compare_credentials() {
-    print_header "Checking environment credentials"
-    
-    # Check if database credentials exist in .env
-    if [[ -n "${DATABASE_URL:-}" ]] || [[ -n "${DB_HOST:-}" && -n "${DB_NAME:-}" && -n "${DB_USER:-}" && -n "${DB_PASSWORD:-}" ]]; then
-        print_status "Database credentials found in .env file"
-        
-        # Extract credentials from .env if they exist
-        ENV_DB_HOST="${DB_HOST:-}"
-        ENV_DB_NAME="${DB_NAME:-}"
-        ENV_DB_USER="${DB_USER:-}"
-        ENV_DB_PASSWORD="${DB_PASSWORD:-}"
-        
-        if [[ "$ENV_DB_HOST" != "$DB_HOST" ]] || [[ "$ENV_DB_NAME" != "$DB_NAME" ]] || [[ "$ENV_DB_USER" != "$DB_USER" ]]; then
-            print_warning "Credentials mismatch detected!"
-            echo ""
-            echo "Environment file credentials:"
-            echo "  Host: ${ENV_DB_HOST:-'not set'}"
-            echo "  Database: ${ENV_DB_NAME:-'not set'}"
-            echo "  User: ${ENV_DB_USER:-'not set'}"
-            echo ""
-            echo "Your input credentials:"
-            echo "  Host: $DB_HOST"
-            echo "  Database: $DB_NAME"
-            echo "  User: $DB_USER"
-            echo ""
-            
-            read -p "Use credentials from setup input? (y/N): " use_input
-            if [[ "$use_input" =~ ^[Yy]$ ]]; then
-                update_env_credentials
-            else
-                # Use .env credentials
-                DB_HOST="$ENV_DB_HOST"
-                DB_NAME="$ENV_DB_NAME"
-                DB_USER="$ENV_DB_USER"
-                DB_PASSWORD="$ENV_DB_PASSWORD"
-                print_status "Using credentials from .env file"
-            fi
-        else
-            print_success "Credentials match .env file"
-        fi
-    else
-        print_status "No database credentials in .env file, using input credentials"
-        update_env_credentials
+        return 0
     fi
 }
 
 update_env_credentials() {
     print_status "Updating .env file with new credentials"
-    
+
     # Backup original .env
-    cp "$ENV_FILE" "$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
-    
+    local backup_file="$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+    cp "$ENV_FILE" "$backup_file"
+    print_status "Backup created: $backup_file"
+
     # Update or add database credentials
     sed -i "/^DB_HOST=/d" "$ENV_FILE"
     sed -i "/^DB_NAME=/d" "$ENV_FILE"
     sed -i "/^DB_USER=/d" "$ENV_FILE"
     sed -i "/^DB_PASSWORD=/d" "$ENV_FILE"
     sed -i "/^DB_PORT=/d" "$ENV_FILE"
-    
+    # Also remove old database configuration comment if exists
+    sed -i "/^# Database Configuration (Updated by setup script)/d" "$ENV_FILE"
+
+    # Remove trailing empty lines
+    sed -i -e :a -e '/^\s*$/d;N;ba' "$ENV_FILE"
+
+    # Add database credentials
     echo "" >> "$ENV_FILE"
-    echo "# Database Configuration (Updated by setup script)" >> "$ENV_FILE"
+    echo "# Database Configuration (Updated by setup script on $(date))" >> "$ENV_FILE"
     echo "DB_HOST=$DB_HOST" >> "$ENV_FILE"
     echo "DB_NAME=$DB_NAME" >> "$ENV_FILE"
     echo "DB_USER=$DB_USER" >> "$ENV_FILE"
     echo "DB_PASSWORD=$DB_PASSWORD" >> "$ENV_FILE"
     echo "DB_PORT=$DB_PORT" >> "$ENV_FILE"
-    
+
     print_success ".env file updated with new credentials"
 }
 
@@ -300,13 +322,19 @@ install_system_packages() {
 
 create_user() {
     print_header "Creating application user"
-    
+
     if ! id "$APP_USER" &>/dev/null; then
-        useradd --system --home "$APP_DIR" --shell /bin/bash "$APP_USER"
+        # Create system user without login
+        useradd --system --shell /bin/bash --no-create-home "$APP_USER"
         usermod -a -G www-data "$APP_USER" 2>/dev/null || true
         print_success "User $APP_USER created"
     else
         print_warning "User $APP_USER already exists"
+    fi
+
+    # Ensure user has access to app directory
+    if [[ -d "$APP_DIR" ]]; then
+        chown -R "$APP_USER:$APP_USER" "$APP_DIR" 2>/dev/null || true
     fi
 }
 
@@ -334,15 +362,69 @@ create_directories() {
 
 setup_database() {
     print_header "Setting up MySQL database"
-    
+
     # Start MySQL service
     systemctl start mysql || systemctl start mysqld || true
     systemctl enable mysql || systemctl enable mysqld || true
-    
-    # Create database if it doesn't exist
-    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || print_warning "Database creation may have failed"
-    
+
+    # Check if we can connect with app user first
+    if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" &>/dev/null 2>&1; then
+        print_success "Database user already exists and can connect"
+
+        # Check if database exists
+        if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "USE \`$DB_NAME\`;" &>/dev/null 2>&1; then
+            print_success "Database '$DB_NAME' already exists"
+        else
+            print_warning "Database '$DB_NAME' does not exist, will create it"
+            # Try to create with app user
+            mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || {
+                print_warning "App user cannot create database, need root credentials"
+                get_mysql_root_credentials
+                create_database_and_user
+            }
+        fi
+    else
+        print_warning "Cannot connect with app user, database and user need to be created"
+        get_mysql_root_credentials
+        create_database_and_user
+    fi
+
     print_success "MySQL database configured"
+}
+
+create_database_and_user() {
+    print_status "Creating database and user with root credentials..."
+
+    # Build mysql command with or without password
+    local mysql_root_cmd="mysql -h$DB_HOST -P$DB_PORT -u$MYSQL_ROOT_USER"
+    if [[ -n "$MYSQL_ROOT_PASSWORD" ]]; then
+        mysql_root_cmd="$mysql_root_cmd -p$MYSQL_ROOT_PASSWORD"
+    fi
+
+    # Create database
+    print_status "Creating database '$DB_NAME'..."
+    $mysql_root_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || {
+        print_error "Failed to create database"
+        print_error "Please check MySQL root credentials and try again"
+        exit 1
+    }
+
+    # Create user and grant privileges
+    print_status "Creating user '$DB_USER' and granting privileges..."
+    $mysql_root_cmd << EOF
+CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
+CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+    if [[ $? -eq 0 ]]; then
+        print_success "Database and user created successfully"
+    else
+        print_error "Failed to create user or grant privileges"
+        exit 1
+    fi
 }
 
 install_python_app() {
@@ -384,48 +466,81 @@ EOF
     print_success "Python application installed"
 }
 
+detect_django_settings() {
+    print_header "Detecting Django settings module"
+
+    # Try to find Django project name
+    local project_name=""
+    if [[ -f "$APP_DIR/manage.py" ]]; then
+        # Extract project name from manage.py
+        project_name=$(grep "DJANGO_SETTINGS_MODULE" "$APP_DIR/manage.py" 2>/dev/null | sed -n "s/.*['\"]\\([^'\"]*\\)\\.settings['\"].*/\\1/p" | head -n1)
+    fi
+
+    if [[ -z "$project_name" ]]; then
+        # Try to find by looking for wsgi.py
+        project_name=$(find "$APP_DIR" -maxdepth 2 -name "wsgi.py" -type f 2>/dev/null | head -n1 | xargs dirname | xargs basename)
+    fi
+
+    if [[ -n "$project_name" ]]; then
+        # Check for production_settings.py
+        if [[ -f "$APP_DIR/$project_name/production_settings.py" ]]; then
+            DJANGO_SETTINGS_MODULE="$project_name.production_settings"
+            print_success "Found production settings: $DJANGO_SETTINGS_MODULE"
+        elif [[ -f "$APP_DIR/$project_name/settings.py" ]]; then
+            DJANGO_SETTINGS_MODULE="$project_name.settings"
+            print_success "Found settings: $DJANGO_SETTINGS_MODULE"
+        else
+            DJANGO_SETTINGS_MODULE="$project_name.settings"
+            print_warning "Settings file not found, using default: $DJANGO_SETTINGS_MODULE"
+        fi
+    else
+        DJANGO_SETTINGS_MODULE="ssm_backend_api.settings"
+        print_warning "Could not detect Django project, using default: $DJANGO_SETTINGS_MODULE"
+    fi
+}
+
 verify_django_environment() {
     print_header "Verifying Django environment"
-    
+
     local issues=()
-    local settings_file="$APP_DIR/ssm_backend_api/settings.py"
-    
+    local project_name=$(echo "$DJANGO_SETTINGS_MODULE" | cut -d'.' -f1)
+    local settings_file="$APP_DIR/$project_name/settings.py"
+
     # Check if Django project exists
     if [[ ! -f "$APP_DIR/manage.py" ]]; then
         issues+=("manage.py not found - not a Django project")
     fi
-    
+
     if [[ ! -f "$settings_file" ]]; then
-        issues+=("Django settings.py not found")
-    else
-        # Check database configuration
-        if ! grep -q "django.db.backends.mysql" "$settings_file" 2>/dev/null; then
-            issues+=("MySQL database backend not configured")
-        fi
-        
-        # Check if python-dotenv is used
-        if ! grep -q "load_dotenv\|python-dotenv" "$settings_file" 2>/dev/null; then
-            issues+=("python-dotenv not configured for .env file loading")
-        fi
-        
-        # Check ALLOWED_HOSTS
-        if grep -q "ALLOWED_HOSTS = \[\]" "$settings_file" 2>/dev/null; then
-            issues+=("ALLOWED_HOSTS is empty - needs configuration")
+        # Try production_settings
+        settings_file="$APP_DIR/$project_name/production_settings.py"
+        if [[ ! -f "$settings_file" ]]; then
+            issues+=("Django settings.py not found at $settings_file")
         fi
     fi
-    
+
+    if [[ -f "$settings_file" ]]; then
+        # Check database configuration
+        if ! grep -q "django.db.backends.mysql" "$settings_file" 2>/dev/null; then
+            issues+=("MySQL database backend not configured in $settings_file")
+        fi
+
+        # Check if python-dotenv is used
+        if ! grep -q "load_dotenv\\|python-dotenv" "$settings_file" 2>/dev/null; then
+            issues+=("python-dotenv not configured for .env file loading")
+        fi
+    fi
+
     # Check requirements.txt
     if [[ -f "$APP_DIR/requirements.txt" ]]; then
-        if ! grep -q "mysqlclient\|PyMySQL" "$APP_DIR/requirements.txt" 2>/dev/null; then
+        if ! grep -q "mysqlclient\\|PyMySQL" "$APP_DIR/requirements.txt" 2>/dev/null; then
             issues+=("MySQL client not in requirements.txt")
         fi
         if ! grep -q "python-dotenv" "$APP_DIR/requirements.txt" 2>/dev/null; then
             issues+=("python-dotenv not in requirements.txt")
         fi
-    else
-        issues+=("requirements.txt not found")
     fi
-    
+
     if [[ ${#issues[@]} -eq 0 ]]; then
         print_success "Django environment verification passed"
     else
@@ -440,8 +555,7 @@ verify_django_environment() {
             print_status "Required changes:"
             echo "  1. Configure MySQL in DATABASES setting"
             echo "  2. Add python-dotenv and load .env file"
-            echo "  3. Set proper ALLOWED_HOSTS"
-            echo "  4. Add mysqlclient to requirements.txt"
+            echo "  3. Add mysqlclient to requirements.txt"
             exit 1
         fi
     fi
@@ -517,7 +631,10 @@ EOF
 
 setup_systemd_services() {
     print_header "Setting up systemd services"
-    
+
+    # Detect wsgi module
+    local wsgi_module=$(echo "$DJANGO_SETTINGS_MODULE" | cut -d'.' -f1).wsgi:application
+
     # Django application service
     cat > "$SYSTEMD_DIR/ssm-api.service" << EOF
 [Unit]
@@ -531,8 +648,8 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment=PATH=$VENV_DIR/bin
-Environment=DJANGO_SETTINGS_MODULE=ssm_backend_api.production_settings
-ExecStart=$VENV_DIR/bin/gunicorn --bind 127.0.0.1:8000 --workers 4 --timeout 60 --keep-alive 5 --access-logfile $LOG_DIR/gunicorn/access.log --error-logfile $LOG_DIR/gunicorn/error.log ssm_backend_api.wsgi:application
+Environment=DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+ExecStart=$VENV_DIR/bin/gunicorn --bind 127.0.0.1:8000 --workers 4 --timeout 60 --keep-alive 5 --access-logfile $LOG_DIR/gunicorn/access.log --error-logfile $LOG_DIR/gunicorn/error.log $wsgi_module
 ExecReload=/bin/kill -s HUP \$MAINPID
 Restart=always
 RestartSec=10
@@ -540,41 +657,41 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
-    
+
     # Reload systemd and enable service
     systemctl daemon-reload
     systemctl enable ssm-api
-    
-    print_success "Systemd service configured"
+
+    print_success "Systemd service configured with $DJANGO_SETTINGS_MODULE"
 }
 
 initialize_database() {
     print_header "Initializing Django database"
-    
+
     sudo -u "$APP_USER" bash << EOF
 cd "$APP_DIR"
 source "$VENV_DIR/bin/activate"
-export DJANGO_SETTINGS_MODULE=ssm_backend_api.production_settings
+export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
 
 # Run Django migrations
 if [ -f manage.py ]; then
     echo "Creating migrations..."
     python manage.py makemigrations --noinput || echo "No new migrations to create"
-    
+
     echo "Applying migrations..."
     python manage.py migrate --noinput
-    
+
     echo "Collecting static files..."
-    python manage.py collectstatic --noinput --clear
-    
+    python manage.py collectstatic --noinput --clear || echo "Static files collection skipped"
+
     echo "Django database initialization completed"
 else
     echo "manage.py not found. Please check your project structure."
     exit 1
 fi
 EOF
-    
-    print_success "Django database initialized"
+
+    print_success "Django database initialized with $DJANGO_SETTINGS_MODULE"
 }
 
 start_services() {
@@ -633,10 +750,8 @@ execute_setup() {
     check_root
     detect_os
     check_env_file
-    get_database_credentials
-    verify_database_connection
-    compare_credentials
-    
+    load_env_credentials
+
     if [[ "$run_all" == true ]]; then
         print_status "Running complete setup..."
         install_system_packages
@@ -644,6 +759,7 @@ execute_setup() {
         create_directories
         setup_database
         install_python_app
+        detect_django_settings
         verify_django_environment
         setup_nginx
         setup_systemd_services
@@ -651,6 +767,12 @@ execute_setup() {
         start_services
     else
         print_status "Running selected components: ${components[*]}"
+
+        # Detect Django settings if needed for any component
+        if [[ " ${components[*]} " =~ " systemd " ]] || [[ " ${components[*]} " =~ " init-db " ]]; then
+            detect_django_settings
+        fi
+
         for component in "${components[@]}"; do
             case $component in
                 packages) install_system_packages ;;
@@ -658,7 +780,10 @@ execute_setup() {
                 directories) create_directories ;;
                 database) setup_database ;;
                 python-app) install_python_app ;;
-                environment) verify_django_environment ;;
+                environment)
+                    detect_django_settings
+                    verify_django_environment
+                    ;;
                 nginx) setup_nginx ;;
                 systemd) setup_systemd_services ;;
                 init-db) initialize_database ;;
