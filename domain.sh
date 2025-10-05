@@ -158,35 +158,50 @@ configure_domain() {
 
     echo -e "${YELLOW}Configuring Nginx for $domain...${NC}"
 
-    # Create Nginx configuration
+    # Ask for port number
+    read -p "Enter the local port your app is running on (e.g., 8000): " port
+    if [[ -z "$port" ]]; then
+        echo -e "${RED}Port number is required.${NC}"
+        return 1
+    fi
+
+    # Create Nginx configuration dynamically
     cat << EOF | sudo tee /etc/nginx/sites-available/$domain > /dev/null
 server {
     listen 80;
     server_name $domain;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:$port;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
+
+    # Optional: serve static files if path exists
+    location /static/ {
+        alias /var/www/$domain/static/;
+    }
+
+    location /media/ {
+        alias /var/www/$domain/media/;
+    }
+}
 EOF
 
-    # Create symbolic link
+    # Enable site by creating a symlink
     sudo ln -sf /etc/nginx/sites-available/$domain /etc/nginx/sites-enabled/
 
-    # Test Nginx configuration
-    if ! sudo nginx -t; then
+    # Test and reload Nginx
+    if sudo nginx -t; then
+        sudo systemctl reload nginx
+        echo -e "${GREEN}Nginx configured successfully for $domain (port $port)${NC}"
+    else
         echo -e "${RED}Nginx configuration test failed${NC}"
-        exit 1
     fi
-
-    # Reload Nginx
-    sudo systemctl reload nginx
-
-    echo -e "${GREEN}Domain configuration completed${NC}"
 }
+
 
 # Function to check DNS records
 check_dns_records() {
