@@ -384,71 +384,66 @@ EOF
     print_success "Python application installed"
 }
 
-setup_environment() {
-    print_header "Setting up Django environment"
+verify_django_environment() {
+    print_header "Verifying Django environment"
     
-    # Create Django settings for production if not exists
-    if [[ ! -f "$APP_DIR/ssm_backend_api/production_settings.py" ]]; then
-        sudo -u "$APP_USER" cat > "$APP_DIR/ssm_backend_api/production_settings.py" << EOF
-from .settings import *
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Security
-DEBUG = False
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost').split(',')
-
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
-    }
-}
-
-# Static files
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-# Security settings
-SECURE_SSL_REDIRECT = False  # Set to True when using HTTPS
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-
-# Logging
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '$LOG_DIR/django.log',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-}
-EOF
-        print_success "Production settings created"
+    local issues=()
+    local settings_file="$APP_DIR/ssm_backend_api/settings.py"
+    
+    # Check if Django project exists
+    if [[ ! -f "$APP_DIR/manage.py" ]]; then
+        issues+=("manage.py not found - not a Django project")
+    fi
+    
+    if [[ ! -f "$settings_file" ]]; then
+        issues+=("Django settings.py not found")
     else
-        print_warning "Production settings already exist"
+        # Check database configuration
+        if ! grep -q "django.db.backends.mysql" "$settings_file" 2>/dev/null; then
+            issues+=("MySQL database backend not configured")
+        fi
+        
+        # Check if python-dotenv is used
+        if ! grep -q "load_dotenv\|python-dotenv" "$settings_file" 2>/dev/null; then
+            issues+=("python-dotenv not configured for .env file loading")
+        fi
+        
+        # Check ALLOWED_HOSTS
+        if grep -q "ALLOWED_HOSTS = \[\]" "$settings_file" 2>/dev/null; then
+            issues+=("ALLOWED_HOSTS is empty - needs configuration")
+        fi
+    fi
+    
+    # Check requirements.txt
+    if [[ -f "$APP_DIR/requirements.txt" ]]; then
+        if ! grep -q "mysqlclient\|PyMySQL" "$APP_DIR/requirements.txt" 2>/dev/null; then
+            issues+=("MySQL client not in requirements.txt")
+        fi
+        if ! grep -q "python-dotenv" "$APP_DIR/requirements.txt" 2>/dev/null; then
+            issues+=("python-dotenv not in requirements.txt")
+        fi
+    else
+        issues+=("requirements.txt not found")
+    fi
+    
+    if [[ ${#issues[@]} -eq 0 ]]; then
+        print_success "Django environment verification passed"
+    else
+        print_warning "Django environment issues found:"
+        for issue in "${issues[@]}"; do
+            echo "  - $issue"
+        done
+        echo ""
+        read -p "Continue setup anyway? (y/N): " continue_setup
+        if [[ ! "$continue_setup" =~ ^[Yy]$ ]]; then
+            print_status "Setup terminated. Please fix Django configuration manually."
+            print_status "Required changes:"
+            echo "  1. Configure MySQL in DATABASES setting"
+            echo "  2. Add python-dotenv and load .env file"
+            echo "  3. Set proper ALLOWED_HOSTS"
+            echo "  4. Add mysqlclient to requirements.txt"
+            exit 1
+        fi
     fi
 }
 
@@ -649,7 +644,7 @@ execute_setup() {
         create_directories
         setup_database
         install_python_app
-        setup_environment
+        verify_django_environment
         setup_nginx
         setup_systemd_services
         initialize_database
@@ -663,7 +658,7 @@ execute_setup() {
                 directories) create_directories ;;
                 database) setup_database ;;
                 python-app) install_python_app ;;
-                environment) setup_environment ;;
+                environment) verify_django_environment ;;
                 nginx) setup_nginx ;;
                 systemd) setup_systemd_services ;;
                 init-db) initialize_database ;;
