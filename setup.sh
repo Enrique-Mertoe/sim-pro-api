@@ -135,24 +135,54 @@ load_env_credentials() {
         echo "  Port: ${env_db_port:-3306}"
         echo ""
 
-        read -p "Use these credentials? (Y/n): " use_env
-        if [[ ! "$use_env" =~ ^[Nn]$ ]]; then
-            # Use .env credentials
-            DB_HOST="$env_db_host"
-            DB_NAME="$env_db_name"
-            DB_USER="$env_db_user"
-            DB_PASSWORD="$env_db_password"
-            DB_PORT="${env_db_port:-3306}"
-            print_success "Using credentials from .env file"
-            return 0
+        # Check if host is localhost/127.0.0.1
+        if [[ "$env_db_host" == "localhost" || "$env_db_host" == "127.0.0.1" ]]; then
+            print_success "Host is already set to localhost - good for local setup"
+            echo ""
+            read -p "Use these credentials? (Y/n): " use_env
+            if [[ ! "$use_env" =~ ^[Nn]$ ]]; then
+                # Use .env credentials
+                DB_HOST="$env_db_host"
+                DB_NAME="$env_db_name"
+                DB_USER="$env_db_user"
+                DB_PASSWORD="$env_db_password"
+                DB_PORT="${env_db_port:-3306}"
+                print_success "Using credentials from .env file"
+                return 0
+            else
+                print_status "You chose to enter new credentials"
+                get_database_credentials
+                update_env_credentials
+            fi
         else
-            print_status "You chose to enter new credentials"
-            get_database_credentials
-            update_env_credentials
+            print_warning "Host '$env_db_host' is not localhost!"
+            print_warning "This setup script requires a local MySQL database"
+            print_status "For local setup, database host must be 'localhost' or '127.0.0.1'"
+            echo ""
+            print_status "TIP: You can manage multiple environments:"
+            echo "  - .env.local    (for local development - used by this script)"
+            echo "  - .env.production (for production/remote database)"
+            echo "  - Copy .env to .env.production to preserve remote credentials"
+            echo ""
+            read -p "Enter new credentials for LOCAL MySQL database? (Y/n): " enter_new
+            if [[ ! "$enter_new" =~ ^[Nn]$ ]]; then
+                # Suggest backing up current .env
+                read -p "Backup current .env to .env.production first? (Y/n): " backup_env
+                if [[ ! "$backup_env" =~ ^[Nn]$ ]]; then
+                    cp "$ENV_FILE" "$APP_DIR/.env.production"
+                    print_success "Remote credentials backed up to .env.production"
+                fi
+                get_database_credentials
+                update_env_credentials
+            else
+                print_error "Cannot proceed with remote database host for local setup"
+                print_status "Please update DB_HOST in .env to 'localhost' and re-run setup"
+                exit 1
+            fi
         fi
     else
         print_warning "No complete database credentials in .env file"
-        print_status "Please enter database credentials"
+        print_status "Please enter LOCAL database credentials"
         get_database_credentials
         update_env_credentials
     fi
@@ -160,11 +190,22 @@ load_env_credentials() {
 
 get_database_credentials() {
     echo ""
-    echo "Enter MySQL database credentials:"
+    echo "Enter MySQL LOCAL database credentials:"
     echo ""
 
-    read -p "Database Host [localhost]: " input_host
-    DB_HOST=${input_host:-localhost}
+    # Enforce localhost
+    while true; do
+        read -p "Database Host [localhost]: " input_host
+        DB_HOST=${input_host:-localhost}
+
+        # Validate that host is localhost or 127.0.0.1
+        if [[ "$DB_HOST" == "localhost" || "$DB_HOST" == "127.0.0.1" ]]; then
+            break
+        else
+            print_error "Host must be 'localhost' or '127.0.0.1' for local setup"
+            print_status "Remote databases are not supported by this setup script"
+        fi
+    done
 
     read -p "Database Name [ssm_api_app]: " input_name
     DB_NAME=${input_name:-ssm_api_app}
@@ -395,6 +436,13 @@ setup_database() {
 create_database_and_user() {
     print_status "Creating database and user with root credentials..."
 
+    # Validate we're working with localhost
+    if [[ "$DB_HOST" != "localhost" && "$DB_HOST" != "127.0.0.1" ]]; then
+        print_error "Cannot create database on remote host '$DB_HOST'"
+        print_error "This script only supports local MySQL setup"
+        exit 1
+    fi
+
     # Build mysql command with or without password
     local mysql_root_cmd="mysql -h$DB_HOST -P$DB_PORT -u$MYSQL_ROOT_USER"
     if [[ -n "$MYSQL_ROOT_PASSWORD" ]]; then
@@ -406,6 +454,7 @@ create_database_and_user() {
     $mysql_root_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || {
         print_error "Failed to create database"
         print_error "Please check MySQL root credentials and try again"
+        print_status "Make sure MySQL is installed and running: systemctl status mysql"
         exit 1
     }
 
@@ -413,16 +462,18 @@ create_database_and_user() {
     print_status "Creating user '$DB_USER' and granting privileges..."
     $mysql_root_cmd << EOF
 CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
-CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';
+CREATE USER IF NOT EXISTS '$DB_USER'@'127.0.0.1' IDENTIFIED BY '$DB_PASSWORD';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
-GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'127.0.0.1';
 FLUSH PRIVILEGES;
 EOF
 
     if [[ $? -eq 0 ]]; then
-        print_success "Database and user created successfully"
+        print_success "Database '$DB_NAME' created successfully"
+        print_success "User '$DB_USER' created with full privileges"
     else
         print_error "Failed to create user or grant privileges"
+        print_status "You may need to manually create the database user"
         exit 1
     fi
 }
