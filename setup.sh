@@ -408,7 +408,9 @@ create_user() {
     # Ensure user has access to app directory
     if [[ -d "$APP_DIR" ]]; then
         chown -R "$APP_USER:$APP_USER" "$APP_DIR" 2>/dev/null || true
+         chmod -R 755 "$APP_DIR"
     fi
+
 }
 
 create_directories() {
