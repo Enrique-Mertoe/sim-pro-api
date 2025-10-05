@@ -20,12 +20,16 @@ NC='\033[0m' # No Color
 APP_NAME="ssm_api_app"
 APP_USER="ssm_api_user"
 CURRENT_DIR="$(pwd)"
-APP_DIR="$CURRENT_DIR"
+APP_DIR="/opt/ssm_api_app"  # Default production directory
+SOURCE_DIR="$CURRENT_DIR"    # Where the script is run from
 VENV_DIR="$APP_DIR/venv"
 LOG_DIR="/var/log/ssm_api_app"
 CONFIG_DIR="/etc/ssm_api_app"
 BACKUP_DIR="/var/backups/ssm_api_app"
 SYSTEMD_DIR="/etc/systemd/system"
+
+# Flag to track if we're using custom directory
+USE_CUSTOM_DIR=false
 
 # Database variables (will be set interactively)
 DB_HOST=""
@@ -99,6 +103,75 @@ check_root() {
         print_error "This script must be run as root"
         exit 1
     fi
+}
+
+choose_install_directory() {
+    print_header "Installation Directory"
+
+    echo "Where would you like to install the application?"
+    echo ""
+    echo "  1) /opt/ssm_api_app (Recommended for production)"
+    echo "  2) Current directory: $SOURCE_DIR (Development only)"
+    echo ""
+
+    read -p "Choose installation directory [1]: " dir_choice
+    dir_choice=${dir_choice:-1}
+
+    if [[ "$dir_choice" == "1" ]]; then
+        APP_DIR="/opt/ssm_api_app"
+        USE_CUSTOM_DIR=false
+        print_success "Installing to: $APP_DIR"
+
+        # Copy files if not already there
+        if [[ "$SOURCE_DIR" != "$APP_DIR" ]]; then
+            copy_application_files
+        fi
+    elif [[ "$dir_choice" == "2" ]]; then
+        APP_DIR="$SOURCE_DIR"
+        USE_CUSTOM_DIR=true
+        print_warning "Installing to: $APP_DIR"
+
+        if [[ "$APP_DIR" == /root/* ]]; then
+            print_warning "Installing in /root directory is NOT recommended for production!"
+            print_warning "Service will need to run as root user"
+        fi
+    else
+        print_error "Invalid choice"
+        exit 1
+    fi
+
+    # Update ENV_FILE path
+    ENV_FILE="$APP_DIR/.env"
+    VENV_DIR="$APP_DIR/venv"
+}
+
+copy_application_files() {
+    print_header "Copying Application Files"
+
+    # Create app directory if it doesn't exist
+    if [[ ! -d "$APP_DIR" ]]; then
+        print_status "Creating directory: $APP_DIR"
+        mkdir -p "$APP_DIR"
+    fi
+
+    print_status "Copying files from $SOURCE_DIR to $APP_DIR..."
+
+    # Copy all files except venv, __pycache__, and .git
+    rsync -av --exclude='venv' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='.git' \
+              --exclude='*.log' \
+              --exclude='db.sqlite3' \
+              "$SOURCE_DIR/" "$APP_DIR/" || {
+        print_error "Failed to copy application files"
+        exit 1
+    }
+
+    # Set ownership
+    chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+
+    print_success "Application files copied to $APP_DIR"
 }
 
 check_env_file() {
@@ -885,6 +958,7 @@ execute_setup() {
     # Always run these checks first
     check_root
     detect_os
+    choose_install_directory
     check_env_file
     load_env_credentials
 
