@@ -510,6 +510,16 @@ install_python_app() {
         exit 1
     fi
 
+    # Check if APP_DIR is in /root - this requires special handling
+    if [[ "$APP_DIR" == /root/* ]]; then
+        print_warning "Application is in /root directory"
+        print_status "Making /root temporarily accessible to app user..."
+
+        # Temporarily make /root accessible (will be reverted after)
+        chmod 755 /root
+        REVERT_ROOT_PERMS=true
+    fi
+
     # Fix ownership of app directory before creating venv
     print_status "Setting correct permissions on $APP_DIR"
     chown -R "$APP_USER:$APP_USER" "$APP_DIR" 2>/dev/null || {
@@ -539,7 +549,8 @@ install_python_app() {
     # Install dependencies
     print_status "Installing Python packages..."
 
-    sudo -u "$APP_USER" bash << EOF
+    # Run as app user with proper environment
+    sudo -u "$APP_USER" -H bash << EOF
 cd "$APP_DIR" || exit 1
 source "$VENV_DIR/bin/activate" || exit 1
 
@@ -563,7 +574,15 @@ pip install gunicorn whitenoise
 echo "Python application installed successfully"
 EOF
 
-    if [[ $? -eq 0 ]]; then
+    local install_result=$?
+
+    # Revert /root permissions if we changed them
+    if [[ "$REVERT_ROOT_PERMS" == true ]]; then
+        print_status "Restoring /root permissions..."
+        chmod 700 /root
+    fi
+
+    if [[ $install_result -eq 0 ]]; then
         print_success "Python application installed"
     else
         print_error "Failed to install Python packages"
