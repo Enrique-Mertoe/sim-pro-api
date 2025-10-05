@@ -381,24 +381,47 @@ create_user() {
 
 create_directories() {
     print_header "Creating application directories"
-    
-    # Create directories if they don't exist
+
+    # Verify APP_DIR exists
+    if [[ ! -d "$APP_DIR" ]]; then
+        print_error "Application directory does not exist: $APP_DIR"
+        print_error "Please run this script from your Django project root directory"
+        exit 1
+    fi
+
+    print_status "Application directory: $APP_DIR"
+
+    # Create system directories if they don't exist
     mkdir -p "$LOG_DIR"
     mkdir -p "$CONFIG_DIR"
     mkdir -p "$BACKUP_DIR"
     mkdir -p "$LOG_DIR/nginx"
     mkdir -p "$LOG_DIR/gunicorn"
     mkdir -p "$CONFIG_DIR/nginx"
+
+    # Create app directories
     mkdir -p "$APP_DIR/static"
     mkdir -p "$APP_DIR/media"
-    
-    # Set permissions
+
+    # Set permissions on system directories
     chown -R "$APP_USER:$APP_USER" "$LOG_DIR"
     chown -R "$APP_USER:$APP_USER" "$BACKUP_DIR"
+
+    # Set permissions on app directories
     chown -R "$APP_USER:$APP_USER" "$APP_DIR/static" 2>/dev/null || true
     chown -R "$APP_USER:$APP_USER" "$APP_DIR/media" 2>/dev/null || true
-    
-    print_success "Directories created"
+
+    # Ensure app user can access the app directory
+    # Give the app user group ownership
+    chgrp -R "$APP_USER" "$APP_DIR" 2>/dev/null || {
+        print_warning "Could not set group ownership on $APP_DIR"
+        print_status "You may need to manually fix permissions later"
+    }
+
+    # Make sure group has read/execute permissions
+    chmod -R g+rX "$APP_DIR" 2>/dev/null || true
+
+    print_success "Directories created and permissions set"
 }
 
 setup_database() {
@@ -480,19 +503,45 @@ EOF
 
 install_python_app() {
     print_header "Installing Python application"
-    
+
+    # Ensure app directory exists and has correct permissions
+    if [[ ! -d "$APP_DIR" ]]; then
+        print_error "Application directory does not exist: $APP_DIR"
+        exit 1
+    fi
+
+    # Fix ownership of app directory before creating venv
+    print_status "Setting correct permissions on $APP_DIR"
+    chown -R "$APP_USER:$APP_USER" "$APP_DIR" 2>/dev/null || {
+        print_warning "Could not change ownership of $APP_DIR"
+        print_status "Attempting to continue anyway..."
+    }
+
     # Create virtual environment if it doesn't exist
     if [[ ! -d "$VENV_DIR" ]]; then
-        sudo -u "$APP_USER" python3 -m venv "$VENV_DIR"
+        print_status "Creating virtual environment at $VENV_DIR"
+
+        # Create venv as root first, then fix permissions
+        python3 -m venv "$VENV_DIR" || {
+            print_error "Failed to create virtual environment"
+            exit 1
+        }
+
+        # Fix ownership
+        chown -R "$APP_USER:$APP_USER" "$VENV_DIR"
         print_success "Virtual environment created"
     else
         print_warning "Virtual environment already exists"
+        # Ensure correct ownership
+        chown -R "$APP_USER:$APP_USER" "$VENV_DIR"
     fi
-    
+
     # Install dependencies
+    print_status "Installing Python packages..."
+
     sudo -u "$APP_USER" bash << EOF
-cd "$APP_DIR"
-source "$VENV_DIR/bin/activate"
+cd "$APP_DIR" || exit 1
+source "$VENV_DIR/bin/activate" || exit 1
 
 # Upgrade pip
 pip install --upgrade pip setuptools wheel
@@ -513,8 +562,13 @@ pip install gunicorn whitenoise
 
 echo "Python application installed successfully"
 EOF
-    
-    print_success "Python application installed"
+
+    if [[ $? -eq 0 ]]; then
+        print_success "Python application installed"
+    else
+        print_error "Failed to install Python packages"
+        exit 1
+    fi
 }
 
 detect_django_settings() {
