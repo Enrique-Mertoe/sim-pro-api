@@ -28,9 +28,6 @@ CONFIG_DIR="/etc/ssm_api_app"
 BACKUP_DIR="/var/backups/ssm_api_app"
 SYSTEMD_DIR="/etc/systemd/system"
 
-# Flag to track if we're using custom directory
-USE_CUSTOM_DIR=false
-
 # Database variables (will be set interactively)
 DB_HOST=""
 DB_NAME=""
