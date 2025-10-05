@@ -121,17 +121,11 @@ get_database_credentials() {
     read -p "Database Host [localhost]: " input_host
     DB_HOST=${input_host:-localhost}
     
-    read -p "Database Name: " DB_NAME
-    while [[ -z "$DB_NAME" ]]; do
-        print_error "Database name cannot be empty"
-        read -p "Database Name: " DB_NAME
-    done
+    read -p "Database Name [ssm_api_app]: " input_name
+    DB_NAME=${input_name:-ssm_api_app}
     
-    read -p "Database User: " DB_USER
-    while [[ -z "$DB_USER" ]]; do
-        print_error "Database user cannot be empty"
-        read -p "Database User: " DB_USER
-    done
+    read -p "Database User [ssm_user]: " input_user
+    DB_USER=${input_user:-ssm_user}
     
     read -s -p "Database Password: " DB_PASSWORD
     echo ""
