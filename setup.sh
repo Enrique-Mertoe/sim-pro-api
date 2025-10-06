@@ -919,6 +919,7 @@ execute_setup() {
     # Always run these checks first
     check_root
     detect_os
+    copy_application_files
     check_env_file
     load_env_credentials
 
