@@ -14,9 +14,10 @@ from pathlib import Path
 
 from decouple import config
 import pymysql
+from dotenv import load_dotenv
 
 pymysql.install_as_MySQLdb()
-
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
