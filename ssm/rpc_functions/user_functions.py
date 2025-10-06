@@ -318,8 +318,6 @@ def approve_onboarding_request(user, data):
     import secrets
     import string
 
-    print("approve_onboarding_request", data)
-
     # Only admins and team leaders can approve requests
     if user.role not in ['admin', 'team_leader']:
         raise PermissionError("Only admins and team leaders can approve onboarding requests")
@@ -453,6 +451,7 @@ def approve_onboarding_request(user, data):
                 is_active=True,
                 email_confirmed=True,
                 confirmed_at=timezone.now(),
+                email_confirmed_at=timezone.now(),
                 raw_user_meta_data={
                     'full_name': user_data['full_name'],
                     'role': user_data['role'],
@@ -471,7 +470,7 @@ def approve_onboarding_request(user, data):
                 id_number=user_data['id_number'],
                 username=user_data.get('username', ''),
                 mobigo_number=user_data.get('mobigo_number', ''),
-                role='staff',  # Set role as staff for approved onboarding requests
+                role='van_staff',
                 team=team,
                 auth_user=auth_user,
                 admin=request_obj.admin,  # Use the admin from the request
