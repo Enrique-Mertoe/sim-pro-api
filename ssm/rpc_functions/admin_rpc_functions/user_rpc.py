@@ -160,7 +160,7 @@ def bulk_import_users(user, **kwargs):
 
     for row in reader:
         # Filter by admin_id
-        if row.get('admin_id') == filter_admin_id:
+        if row.get('admin_id') == filter_admin_id and row.get("role", '').lower() == "team_leader":
             user_id = row.get('id') or row.get('auth_user_id')
             email = row.get('email', '').strip()
             username = row.get('username', '').strip() or row.get('phone_number', '').strip()
@@ -173,7 +173,6 @@ def bulk_import_users(user, **kwargs):
                 created_at = parser.parse(created_at_str)
             else:
                 created_at = timezone.now()
-
 
             # Create SSMAuthUser data
             password = make_password(None)
@@ -203,7 +202,7 @@ def bulk_import_users(user, **kwargs):
                 'id_back_url': row.get('id_back_url', ''),
                 'phone_number': row.get('phone_number', ''),
                 'mobigo_number': row.get('mobigo_number', ''),
-                'role': row.get('role', 'staff'),
+                'role': row.get('role', 'staff').lower(),
                 'team_id': row.get('team_id') or None,
                 'staff_type': row.get('staff_type', ''),
                 'is_active': row.get('is_active', 'true').lower() == 'true',
@@ -230,38 +229,38 @@ def bulk_import_users(user, **kwargs):
             # Create/Update SSMAuthUsers
             if auth_users_to_create:
                 logger.info(f"Processing {len(auth_users_to_create)} SSMAuthUser records")
-                for auth_data in auth_users_to_create:
-                    auth_user_id = auth_data.pop('id')
-
-                    auth_user, created = SSMAuthUser.objects.update_or_create(
-                        id=auth_user_id,
-                        defaults=auth_data
-                    )
-
-                    if created:
-                        auth_created_count += 1
-                    else:
-                        auth_updated_count += 1
-
-                logger.info(f"SSMAuthUser: {auth_created_count} created, {auth_updated_count} updated")
+                # for auth_data in auth_users_to_create:
+                #     auth_user_id = auth_data.pop('id')
+                #
+                #     auth_user, created = SSMAuthUser.objects.update_or_create(
+                #         id=auth_user_id,
+                #         defaults=auth_data
+                #     )
+                #
+                #     if created:
+                #         auth_created_count += 1
+                #     else:
+                #         auth_updated_count += 1
+                #
+                # logger.info(f"SSMAuthUser: {auth_created_count} created, {auth_updated_count} updated")
 
             # Create/Update Users
             if users_to_create:
                 logger.info(f"Processing {len(users_to_create)} User records")
-                for user_data in users_to_create:
-                    user_id = user_data.pop('id')
-
-                    user_obj, created = User.objects.update_or_create(
-                        id=user_id,
-                        defaults=user_data
-                    )
-
-                    if created:
-                        user_created_count += 1
-                    else:
-                        user_updated_count += 1
-
-                logger.info(f"User: {user_created_count} created, {user_updated_count} updated")
+                # for user_data in users_to_create:
+                #     user_id = user_data.pop('id')
+                #
+                #     user_obj, created = User.objects.update_or_create(
+                #         id=user_id,
+                #         defaults=user_data
+                #     )
+                #
+                #     if created:
+                #         user_created_count += 1
+                #     else:
+                #         user_updated_count += 1
+                #
+                # logger.info(f"User: {user_created_count} created, {user_updated_count} updated")
 
             logger.info(f"Bulk import completed successfully")
 

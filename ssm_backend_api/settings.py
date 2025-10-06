@@ -197,6 +197,12 @@ CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="",
                               cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
 CORS_ALLOW_CREDENTIALS = True
 
+# Expose headers that the browser can access
+CORS_EXPOSE_HEADERS = [
+    'content-range',
+    'content-length',
+]
+
 # Allow common headers used by APIs
 CORS_ALLOW_HEADERS = [
     'accept',
