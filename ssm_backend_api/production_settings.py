@@ -14,10 +14,9 @@ from pathlib import Path
 
 from decouple import config
 import pymysql
-from dotenv import load_dotenv
 
 pymysql.install_as_MySQLdb()
-load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -32,7 +31,6 @@ DEBUG = False
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="",
                        cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
-
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
