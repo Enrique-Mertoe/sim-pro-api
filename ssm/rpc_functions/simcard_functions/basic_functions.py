@@ -4,7 +4,7 @@ SIM Card management RPC functions
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from django.utils import timezone
-from ..models import User, SimCard, BatchMetadata, SimCardTransfer
+from ssm.models import User, SimCard, BatchMetadata, SimCardTransfer
 
 SSMAuthUser = get_user_model()
 
