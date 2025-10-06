@@ -29,10 +29,9 @@ SECRET_KEY = 'django-insecure-_87k+croy7a3$$i0(6=zkaguf6bcq^tg8uec1soca_qz96&qy)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "ssm-api-server.nagelecommunication.com",
-]
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="",
+                       cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
+
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
