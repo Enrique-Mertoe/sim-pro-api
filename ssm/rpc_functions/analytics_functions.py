@@ -7,7 +7,7 @@ from datetime import datetime
 from ..models import SimCard, User
 
 
-def get_connections_analytics(user, start_date=None, end_date=None):
+def get_connections_analytics(user, start_date=None, end_date=None, **kwargs):
     """
     Get comprehensive analytics for connections (activated SIM cards)
     Filters by activation_date range and only includes cards with activation_date not null
@@ -18,7 +18,10 @@ def get_connections_analytics(user, start_date=None, end_date=None):
             batch__admin=user,
             activation_date__isnull=False
         )
-
+        user_id = kwargs.get("user_id")
+        # Filter by user's admin
+        if user_id:
+            base_query = base_query.filter(assigned_to_user_id=user_id)
 
         # Apply date filters if provided
         if start_date:
@@ -66,14 +69,18 @@ def get_connections_analytics(user, start_date=None, end_date=None):
                 'total_connections': total_connections,
                 'quality_count': quality_count,
                 'non_quality_count': non_quality_count,
-                'quality_percentage': round((quality_count / total_connections * 100) if total_connections > 0 else 0, 2),
-                'non_quality_percentage': round((non_quality_count / total_connections * 100) if total_connections > 0 else 0, 2)
+                'quality_percentage': round((quality_count / total_connections * 100) if total_connections > 0 else 0,
+                                            2),
+                'non_quality_percentage': round(
+                    (non_quality_count / total_connections * 100) if total_connections > 0 else 0, 2)
             },
             'source_breakdown': {
                 'from_picklist': from_picklist,
                 'extra_connections': extra_connections,
-                'picklist_percentage': round((from_picklist / total_connections * 100) if total_connections > 0 else 0, 2),
-                'extra_percentage': round((extra_connections / total_connections * 100) if total_connections > 0 else 0, 2)
+                'picklist_percentage': round((from_picklist / total_connections * 100) if total_connections > 0 else 0,
+                                             2),
+                'extra_percentage': round((extra_connections / total_connections * 100) if total_connections > 0 else 0,
+                                          2)
             },
             'non_quality_breakdown': {
                 'total': non_quality_count,
@@ -81,7 +88,8 @@ def get_connections_analytics(user, start_date=None, end_date=None):
                 'zero_usage': zero_usage,
                 'no_topup': no_topup,
                 'low_topup_percentage': round((low_topup / non_quality_count * 100) if non_quality_count > 0 else 0, 2),
-                'zero_usage_percentage': round((zero_usage / non_quality_count * 100) if non_quality_count > 0 else 0, 2),
+                'zero_usage_percentage': round((zero_usage / non_quality_count * 100) if non_quality_count > 0 else 0,
+                                               2),
                 'no_topup_percentage': round((no_topup / non_quality_count * 100) if non_quality_count > 0 else 0, 2)
             }
         }
@@ -89,7 +97,7 @@ def get_connections_analytics(user, start_date=None, end_date=None):
         raise ValueError(f"Error getting analytics: {str(e)}")
 
 
-def get_team_analytics_breakdown(user, start_date=None, end_date=None):
+def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs):
     """
     Get team-wise breakdown of connections analytics with non-quality breakdown
     Optimized for large datasets (50K+ records) using single-query aggregation
@@ -103,6 +111,11 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None):
             batch__admin=user,
             activation_date__isnull=False
         )
+
+        # Filter by user_id if provided
+        user_id = kwargs.get("user_id")
+        if user_id:
+            base_query = base_query.filter(assigned_to_user_id=user_id)
 
         # Apply date filters if provided
         if start_date:
@@ -204,7 +217,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None):
         raise ValueError(f"Error getting team analytics: {str(e)}")
 
 
-def get_quality_trend(user, start_date=None, end_date=None):
+def get_quality_trend(user, start_date=None, end_date=None, **kwargs):
     """
     Get quality vs non-quality trend over time (grouped by day)
     """
@@ -214,6 +227,11 @@ def get_quality_trend(user, start_date=None, end_date=None):
             batch__admin=user,
             activation_date__isnull=False
         )
+
+        # Filter by user_id if provided
+        user_id = kwargs.get("user_id")
+        if user_id:
+            base_query = base_query.filter(assigned_to_user_id=user_id)
 
         # Apply date filters if provided
         if start_date:
@@ -257,7 +275,7 @@ def get_quality_trend(user, start_date=None, end_date=None):
         raise ValueError(f"Error getting quality trend: {str(e)}")
 
 
-def get_teams_list(user, start_date=None, end_date=None):
+def get_teams_list(user, start_date=None, end_date=None, **kwargs):
     """
     Get list of teams with basic info - optimized for initial load
     Queries Team model directly, then counts connections separately
@@ -265,6 +283,9 @@ def get_teams_list(user, start_date=None, end_date=None):
     """
     try:
         from ..models import Team
+
+        # Get user_id filter if provided
+        user_id = kwargs.get("user_id")
 
         # Get all teams for this admin - super fast query
         teams_queryset = Team.objects.filter(
@@ -282,6 +303,10 @@ def get_teams_list(user, start_date=None, end_date=None):
                 team__id=team['id'],
                 activation_date__isnull=False
             )
+
+            # Filter by user_id if provided
+            if user_id:
+                connection_query = connection_query.filter(assigned_to_user_id=user_id)
 
             # Apply date filters if provided
             if start_date:
@@ -306,6 +331,10 @@ def get_teams_list(user, start_date=None, end_date=None):
             team__isnull=True,
             activation_date__isnull=False
         )
+
+        # Filter by user_id if provided
+        if user_id:
+            unassigned_query = unassigned_query.filter(assigned_to_user_id=user_id)
 
         if start_date:
             start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
@@ -336,7 +365,7 @@ def get_teams_list(user, start_date=None, end_date=None):
         raise ValueError(f"Error getting teams list: {str(e)}")
 
 
-def get_team_metrics(user, team_id=None, start_date=None, end_date=None):
+def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwargs):
     """
     Get detailed metrics for a specific team
     Called after team list is loaded for progressive loading
@@ -347,6 +376,11 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None):
             batch__admin=user,
             activation_date__isnull=False
         )
+
+        # Filter by user_id if provided
+        user_id = kwargs.get("user_id")
+        if user_id:
+            base_query = base_query.filter(assigned_to_user_id=user_id)
 
         # Apply date filters if provided
         if start_date:
