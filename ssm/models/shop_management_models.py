@@ -71,7 +71,7 @@ class Shop(models.Model):
                                         help_text="Commission percentage")
 
     # Metadata
-    metadata = models.JSONField(default=dict, help_text="Additional shop-specific data")
+    metadata = models.JSONField(default=dict, help_text="Additional shop specific data")
     notes = models.TextField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
