@@ -116,7 +116,8 @@ copy_application_files() {
     print_status "Copying files from $SOURCE_DIR to $APP_DIR..."
 
     # Copy all files except venv, __pycache__, and .git
-    rsync -av --exclude='venv' \
+    # --delete ensures destination is exact mirror of source
+    rsync -av --delete --exclude='venv' \
               --exclude='__pycache__' \
               --exclude='*.pyc' \
               --exclude='.git' \
