@@ -26,6 +26,7 @@ from .base_models import (
     BusinessInfo,
     UserSettings,
 )
+from .product_instance_model import ProductInstance
 
 # Import all models from shop_management_models
 from .shop_management_models import (
@@ -75,4 +76,7 @@ __all__ = [
     'ShopPerformance',
     'ShopTarget',
     'ShopAuditLog',
+
+    'ProductInstance'
+
 ]

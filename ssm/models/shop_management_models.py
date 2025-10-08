@@ -62,6 +62,7 @@ class Shop(models.Model):
                                    related_name='managed_shops')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_shops')
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_shops')
+    owner = models.ForeignKey(User,default=None,null=True,blank=True, on_delete=models.CASCADE, related_name='owner_shops')
 
     # Financial Information
     credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -592,7 +593,6 @@ class Product(models.Model):
 
     # Basic Information
     product_code = models.CharField(max_length=50, unique=True)
-    barcode = models.CharField(max_length=100, unique=True, null=True, blank=True)
     product_name = models.CharField(max_length=200)
     model = models.CharField(max_length=100, null=True, blank=True)
     brand = models.CharField(max_length=100, null=True, blank=True)
@@ -641,12 +641,12 @@ class Product(models.Model):
 
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_products')
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_products')
+    # shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='shop_products')
 
     class Meta:
         db_table = 'products'
         indexes = [
             models.Index(fields=['product_code']),
-            models.Index(fields=['barcode']),
             models.Index(fields=['category']),
             models.Index(fields=['status']),
             models.Index(fields=['product_name']),

@@ -15,6 +15,7 @@ from .settings_functions import functions as settings_functions
 from .admin_rpc_functions import functions as admin_functions
 from .picklist_rpc_function import functions as picklist_rpc_function
 from .dashboard_functions import functions as dashboard_functions
+from .shop_rpc_functions import functions as shop_rpc_functions
 
 # Combine all function registries
 functions = {
@@ -30,5 +31,6 @@ functions = {
     **settings_functions,
     **picklist_rpc_function,
     **admin_functions,
-    **dashboard_functions
+    **dashboard_functions,
+    **shop_rpc_functions
 }

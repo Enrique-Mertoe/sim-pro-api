@@ -3,10 +3,14 @@ from django.db.models import Q, Sum, Count, Avg, F
 from datetime import datetime, timedelta
 from decimal import Decimal
 import uuid
+
+from django.utils import timezone
+
 from ..models.shop_management_models import (
     Shop, ProductCategory, Supplier, Product, ShopProductInventory,
     StockMovement, PurchaseOrder, ProductSale
 )
+from ..models.product_instance_model import ProductInstance
 
 
 # ==================== SHOP MANAGEMENT ====================
@@ -15,7 +19,10 @@ def get_all_shops(user):
     """
     Get all shops with summary statistics
     """
-    shops = Shop.objects.filter(admin=user).select_related('shop_manager', 'team')
+    base = Shop.objects.filter(admin=user if user.role == "admin" and not user.admin else user.admin)
+    if user.admin and user.role not in ["admin"]:
+        base = base.filter(owner=user)
+    shops = base.select_related('shop_manager', 'team')
 
     result = []
     for shop in shops:
@@ -55,6 +62,10 @@ def get_all_shops(user):
                 'total_sales': sales_summary['total_sales'] or 0,
                 'total_revenue': float(sales_summary['total_revenue'] or 0)
             },
+            "owner": {
+                "id": shop.owner.id,
+                "full_name": shop.owner.full_name,
+            } if shop.owner else None,
             'created_at': shop.created_at.isoformat(),
         })
 
@@ -63,10 +74,34 @@ def get_all_shops(user):
 
 def create_shop(user, shop_data):
     """
-    Create a new shop
+    Create a new shop with auto-generated shop code
     """
+    admin_user = user.admin
+    if not admin_user:
+        return {'success': False, 'error': 'Invalid Operation'}
+    if user.role not in ["team_leader", "mpesa_only_agent"]:
+        return {'success': False, 'error': 'Unable to complete operation'}
+    # Generate shop code based on city and region
+    city_prefix = shop_data['city'][:3].upper()
+    region_prefix = shop_data['region'][:3].upper()
+
+    # Get count of existing shops in same region for numbering
+    existing_count = Shop.objects.filter(
+        region__iexact=shop_data['region'],
+        admin=admin_user,
+        owner=user
+    ).count() + 1
+
+    # Generate unique shop code
+    shop_code = f"{city_prefix}-{region_prefix}-{existing_count:03d}"
+
+    # Ensure uniqueness
+    while Shop.objects.filter(shop_code=shop_code, admin=admin_user, owner=user).exists():
+        existing_count += 1
+        shop_code = f"{city_prefix}-{region_prefix}-{existing_count:03d}"
+
     shop = Shop.objects.create(
-        shop_code=shop_data['shop_code'],
+        shop_code=shop_code,
         shop_name=shop_data['shop_name'],
         shop_type=shop_data.get('shop_type', 'agent'),
         status=shop_data.get('status', 'pending_approval'),
@@ -77,10 +112,11 @@ def create_shop(user, shop_data):
         phone_number=shop_data['phone_number'],
         email=shop_data.get('email'),
         created_by=user,
-        admin=user
+        admin=admin_user,
+        owner=user,
     )
 
-    return {'success': True, 'shop_id': str(shop.id)}
+    return {'success': True, 'shop_id': str(shop.id), 'shop_code': shop_code}
 
 
 # ==================== PRODUCT MANAGEMENT ====================
@@ -89,7 +125,9 @@ def get_all_products(user, category_id=None, search=None):
     """
     Get all products with filtering options
     """
-    query = Product.objects.filter(admin=user).select_related('category', 'default_supplier')
+    if user.admin and user.role not in ["team_leader"]:
+        raise "UnAuthorised operation"
+    query = Product.objects.filter(admin=user.admin or user).select_related('category', 'default_supplier')
 
     if category_id:
         query = query.filter(category_id=category_id)
@@ -106,7 +144,6 @@ def get_all_products(user, category_id=None, search=None):
         products.append({
             'id': str(product.id),
             'product_code': product.product_code,
-            'barcode': product.barcode,
             'product_name': product.product_name,
             'model': product.model,
             'brand': product.brand,
@@ -133,11 +170,27 @@ def get_all_products(user, category_id=None, search=None):
 
 def create_product(user, product_data):
     """
-    Create a new product
+    Create a new product with optional serial numbers for instances
     """
+    # Auto-generate product code from brand and model
+    brand = product_data.get('brand', 'PROD')[:3].upper()
+    model = product_data.get('model', product_data['product_name'])[:5].upper().replace(' ', '')
+
+    # Get admin user
+    admin_user = user if user.role == "admin" and not user.admin else user.admin
+
+    # Count existing products with similar code
+    base_code = f"{brand}-{model}"
+    existing_count = Product.objects.filter(
+        product_code__startswith=base_code,
+        admin=admin_user
+    ).count() + 1
+
+    product_code = f"{base_code}-{existing_count:03d}"
+
+    # Create single product
     product = Product.objects.create(
-        product_code=product_data['product_code'],
-        barcode=product_data.get('barcode'),
+        product_code=product_code,
         product_name=product_data['product_name'],
         model=product_data.get('model'),
         brand=product_data.get('brand'),
@@ -148,12 +201,120 @@ def create_product(user, product_data):
         retail_price=product_data.get('retail_price'),
         reorder_level=product_data.get('reorder_level', 0),
         reorder_quantity=product_data.get('reorder_quantity', 0),
-        default_supplier_id=product_data.get('supplier_id'),
+
         created_by=user,
-        admin=user
+        admin=admin_user,
+        # shop_id=product_data['shop_id']
     )
 
+    # Handle serial numbers if provided
+    # serial_numbers = product_data.get('barcodes', [])
+    # print("prd",product_data)
+    # shop_id = product_data.get('shop_id')
+    #
+    # if serial_numbers and shop_id:
+    #     instances = []
+    #     for serial in serial_numbers:
+    #         instance = ProductInstance.objects.create(
+    #             product=product,
+    #             serial_number=serial,
+    #             barcode=serial,  # barcode = serial number
+    #             current_shop_id=shop_id,
+    #             status='available',
+    #             allocated_by=user
+    #         )
+    #         instances.append(str(instance.id))
+    #
+    #     # Create/update shop inventory
+    #     inventory, created = ShopProductInventory.objects.get_or_create(
+    #         shop_id=shop_id,
+    #         product=product,
+    #         defaults={'quantity': 0, 'available_quantity': 0}
+    #     )
+    #     inventory.quantity += len(serial_numbers)
+    #     inventory.available_quantity += len(serial_numbers)
+    #     inventory.save()
+    #
+    #     return {
+    #         'success': True,
+    #         'product_id': str(product.id),
+    #         'instances_created': len(instances),
+    #         'instance_ids': instances
+    #     }
+
     return {'success': True, 'product_id': str(product.id)}
+
+
+def allocate_product_instances(user, product_id, shop_id, serial_numbers):
+    """
+    Allocate product instances with serial numbers to a shop
+    """
+    product = Product.objects.get(id=product_id)
+    shop = Shop.objects.get(id=shop_id)
+
+    instances = []
+    for serial in serial_numbers:
+        instance = ProductInstance.objects.create(
+            product=product,
+            serial_number=serial,
+            current_shop=shop,
+            status='available',
+            allocated_by=user
+        )
+        instances.append(str(instance.id))
+
+    # Update shop inventory quantity
+    inventory, created = ShopProductInventory.objects.get_or_create(
+        shop=shop,
+        product=product,
+        defaults={'quantity': 0, 'available_quantity': 0}
+    )
+    inventory.quantity += len(serial_numbers)
+    inventory.available_quantity += len(serial_numbers)
+    inventory.save()
+
+    return {'success': True, 'instance_ids': instances}
+
+
+def sell_product_by_barcode(user, shop_id, barcode, customer_data, sale_price):
+    """
+    Sell a product by scanning its barcode (which is the serial number)
+    """
+    try:
+        instance = ProductInstance.objects.get(
+            barcode=barcode,
+            current_shop_id=shop_id,
+            status='available'
+        )
+
+        # Mark as sold
+        instance.status = 'sold'
+        instance.sold_date = timezone.now()
+        instance.sold_by = user
+        instance.sale_price = sale_price
+        instance.customer_name = customer_data.get('name')
+        instance.customer_phone = customer_data.get('phone')
+        instance.save()
+
+        # Update shop inventory
+        inventory = ShopProductInventory.objects.get(
+            shop_id=shop_id,
+            product=instance.product
+        )
+        inventory.available_quantity -= 1
+        inventory.save()
+
+        return {
+            'success': True,
+            'product': {
+                'name': instance.product.product_name,
+                'price': float(sale_price),
+                'serial': instance.serial_number
+            }
+        }
+
+    except ProductInstance.DoesNotExist:
+        return {'success': False, 'error': 'Product not found or not available'}
 
 
 def update_product(user, product_id, product_data):
@@ -173,11 +334,40 @@ def update_product(user, product_id, product_data):
 
 # ==================== PRODUCT CATEGORIES ====================
 
+def get_shop_inventory_with_serials(user, shop_id):
+    """
+    Get shop inventory with available serial numbers
+    """
+    shop = Shop.objects.get(id=shop_id)
+    inventory = ShopProductInventory.objects.filter(shop=shop).select_related('product')
+
+    result = []
+    for inv in inventory:
+        # Get available instances
+        instances = ProductInstance.objects.filter(
+            product=inv.product,
+            current_shop=shop,
+            status='available'
+        ).values_list('serial_number', flat=True)
+
+        result.append({
+            'product_id': str(inv.product.id),
+            'product_name': inv.product.product_name,
+            'total_quantity': inv.quantity,
+            'available_quantity': inv.available_quantity,
+            'available_serials': list(instances),
+            'selling_price': float(inv.product.selling_price)
+        })
+
+    return result
+
+
 def get_all_categories(user):
     """
     Get all product categories
     """
-    categories = ProductCategory.objects.filter(admin=user).prefetch_related('products')
+    categories = ProductCategory.objects.filter(
+        admin=user if user.role == "admin" and not user.admin else user.admin).prefetch_related('products')
 
     result = []
     for category in categories:
@@ -199,13 +389,27 @@ def create_category(user, category_data):
     """
     Create a new product category
     """
+    # Auto-generate category code from name
+    name = category_data['name']
+    code = name.upper().replace(' ', '_')[:10]
+
+    # Ensure uniqueness
+    admin_user = user if user.role == "admin" and not user.admin else user.admin
+    existing_count = ProductCategory.objects.filter(
+        code__startswith=code,
+        admin=admin_user
+    ).count()
+
+    if existing_count > 0:
+        code = f"{code}_{existing_count + 1}"
+
     category = ProductCategory.objects.create(
         name=category_data['name'],
-        code=category_data['code'],
+        code=code,
         description=category_data.get('description'),
         icon=category_data.get('icon'),
         color=category_data.get('color'),
-        admin=user
+        admin=admin_user
     )
 
     return {'success': True, 'category_id': str(category.id)}
@@ -236,7 +440,8 @@ def get_shop_inventory(user, shop_id):
             'quantity': item.quantity,
             'reserved_quantity': item.reserved_quantity,
             'available_quantity': item.available_quantity,
-            'shop_selling_price': float(item.shop_selling_price) if item.shop_selling_price else float(item.product.selling_price),
+            'shop_selling_price': float(item.shop_selling_price) if item.shop_selling_price else float(
+                item.product.selling_price),
             'low_stock_alert': item.low_stock_alert,
             'min_stock_level': item.min_stock_level,
             'shelf_location': item.shelf_location

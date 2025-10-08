@@ -9,6 +9,8 @@ from .models import (
     ForumTopic, ForumPost, ForumLike, SecurityRequestLog, TaskStatus,
     Config, Notification, PasswordResetRequest, LotMetadata, TeamGroup, TeamGroupMembership
 )
+from .models.product_instance_model import ProductInstance
+from .models.shop_management_models import Product
 
 # Model mapping for dynamic table access
 MODEL_MAP = {
@@ -33,6 +35,8 @@ MODEL_MAP = {
     'config': Config,
     'notifications': Notification,
     'password_reset_requests': PasswordResetRequest,
+    'products': Product,
+    'product_instances': ProductInstance,
 }
 
 
