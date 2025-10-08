@@ -91,8 +91,7 @@ def create_payment_order(user, **order_data):
         }
 
         response = requests.post(
-            # 'https://nagele-pay.nagelecommunication.com/api/v1/orders/register',
-            'http://localhost:8085/api/v1/orders/register',
+            getattr(settings, 'NAGELE_PAYMENT_URL') + "/api/v1/orders/register",
             json=gateway_payload,
             headers=headers,
             timeout=30
