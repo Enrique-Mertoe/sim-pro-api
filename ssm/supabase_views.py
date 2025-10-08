@@ -1252,7 +1252,7 @@ def auth_verify_email(request):
             ).first()
 
             # Check if token is expired (24 hours)
-            if auth_user.confirmation_sent_at:
+            if auth_user and auth_user.confirmation_sent_at:
                 expiry_time = auth_user.confirmation_sent_at + timedelta(hours=24)
                 if timezone.now() > expiry_time:
                     return supabase_response(

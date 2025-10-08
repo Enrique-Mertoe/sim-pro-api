@@ -250,5 +250,9 @@ LOGOUT_REDIRECT_URL = '/dashboard/login/'
 DEFAULT_FROM_EMAIL = "support@kaigates.com"
 
 FRONTEND_URL = config('FRONTEND_URL')
+NAGELE_PAY_API_KEY = config('NAGELE_PAY_API_KEY')
+NAGELE_PAY_API_SECRET = config('NAGELE_PAY_API_SECRET')
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+
