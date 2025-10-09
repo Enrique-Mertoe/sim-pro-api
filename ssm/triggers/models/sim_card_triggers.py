@@ -237,6 +237,11 @@ def handle_sim_card_assignment(context: TriggerContext) -> TriggerResult:
             sim_card.assigned_on = timezone.now()
             sim_card.save(update_fields=['assigned_on'])
 
+        # Update lot metadata counts
+        if sim_card.lot:
+            from ssm.utils.lot_utils import update_lot_assignment_counts
+            update_lot_assignment_counts(sim_card.lot)
+
         # Update shop inventory if SIM is allocated to shops
         from ssm.models import ShopInventory
         shop_inventories = ShopInventory.objects.filter(sim_card=sim_card)

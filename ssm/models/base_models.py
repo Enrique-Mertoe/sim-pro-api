@@ -1,3 +1,4 @@
+from IPython.core.magic_arguments import real_name
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 import uuid
@@ -60,7 +61,8 @@ class User(models.Model):
     phone_number = models.CharField(max_length=50, null=True, blank=True)
     mobigo_number = models.CharField(max_length=50, null=True, blank=True)
     role = models.CharField(max_length=50)
-    team = models.ForeignKey('Team', default=None, on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey('Team', default=None, on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name="team_members")
     staff_type = models.CharField(max_length=50, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     last_login_at = models.DateTimeField(null=True, blank=True)
@@ -236,6 +238,8 @@ class LotMetadata(models.Model):
     total_sims = models.IntegerField()
     quality_count = models.IntegerField(default=0)
     nonquality_count = models.IntegerField(default=0)
+    assigned_sim_count = models.IntegerField(default=0)
+    unassigned_sim_count = models.IntegerField(default=0)
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_lots')
 
     class Meta:
@@ -620,7 +624,8 @@ class UserSettings(models.Model):
 
     # Privacy Settings
     profile_visibility = models.CharField(max_length=20, default='team_only',
-        choices=[('public', 'Public'), ('private', 'Private'), ('team_only', 'Team Only')])
+                                          choices=[('public', 'Public'), ('private', 'Private'),
+                                                   ('team_only', 'Team Only')])
     show_email = models.BooleanField(default=False)
     show_phone = models.BooleanField(default=False)
     data_sharing = models.BooleanField(default=False)
@@ -636,7 +641,7 @@ class UserSettings(models.Model):
     timezone = models.CharField(max_length=50, default='Africa/Nairobi')
     date_format = models.CharField(max_length=20, default='DD/MM/YYYY')
     theme = models.CharField(max_length=10, default='auto',
-        choices=[('light', 'Light'), ('dark', 'Dark'), ('auto', 'Auto')])
+                             choices=[('light', 'Light'), ('dark', 'Dark'), ('auto', 'Auto')])
 
     class Meta:
         db_table = 'user_settings'

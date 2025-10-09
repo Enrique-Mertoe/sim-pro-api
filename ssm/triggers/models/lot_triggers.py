@@ -10,6 +10,7 @@ from ..base.trigger_decorator import (
 )
 from ..base.trigger_base import TriggerContext, TriggerResult, TriggerEvent
 from ssm.models import LotMetadata
+from ...utils.lot_utils import update_lot_assignment_counts
 
 
 @post_save_trigger(
@@ -196,6 +197,7 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
         updated_count = SimCard.objects.filter(
             serial_number__in=lot.serial_numbers
         ).update(team=new_team)
+        update_lot_assignment_counts(lot.lot_number)
         
         # Create activity log
         from ssm.models import ActivityLog
