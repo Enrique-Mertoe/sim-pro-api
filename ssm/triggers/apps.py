@@ -32,8 +32,7 @@ class TriggersConfig(AppConfig):
         try:
             # Import all model-specific trigger modules
             from . import models
-            from .models import sim_card_triggers, shop_triggers
-
+            from .models import sim_card_triggers, shop_triggers, lot_triggers, batch_triggers
             # Import base modules
             from .base import signal_integration
 
@@ -58,6 +57,7 @@ class TriggersConfig(AppConfig):
             logger.info(f"Trigger registry initialized with {len(registry.triggers)} triggers")
             logger.info(f"Trigger engine initialized (enabled: {engine.enabled})")
             logger.info(f"Signal handler initialized (enabled: {signal_handler.enabled})")
+
 
             # Perform health check
             health_status = registry.health_check()

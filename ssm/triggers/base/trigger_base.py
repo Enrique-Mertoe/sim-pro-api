@@ -4,7 +4,7 @@ Base classes for the trigger system
 import uuid
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Any, Dict, List, Optional, Union, Callable, TypeVar, Generic
 from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -47,13 +47,15 @@ class TriggerStatus(Enum):
     CANCELLED = "cancelled"
 
 
+TModel = TypeVar('TModel', bound=models.Model)
+
 @dataclass
-class TriggerContext:
+class TriggerContext(Generic[TModel]):
     """Context object passed to trigger functions"""
     event: TriggerEvent
-    model: models.Model
-    instance: Optional[models.Model] = None
-    old_instance: Optional[models.Model] = None
+    model: type[TModel]
+    instance: Optional[TModel] = None
+    old_instance: Optional[TModel] = None
     user: Optional[Any] = None
     request: Optional[Any] = None
     created: Optional[bool] = None
@@ -139,18 +141,18 @@ class BaseTrigger:
     """Base trigger class"""
 
     def __init__(
-        self,
-        name: str,
-        event: TriggerEvent,
-        model: Union[models.Model, str],
-        conditions: List[TriggerCondition] = None,
-        actions: List[TriggerAction] = None,
-        priority: TriggerPriority = TriggerPriority.NORMAL,
-        enabled: bool = True,
-        max_retries: int = 3,
-        timeout_seconds: int = 30,
-        description: str = "",
-        metadata: Dict[str, Any] = None
+            self,
+            name: str,
+            event: TriggerEvent,
+            model: Union[models.Model, str],
+            conditions: List[TriggerCondition] = None,
+            actions: List[TriggerAction] = None,
+            priority: TriggerPriority = TriggerPriority.NORMAL,
+            enabled: bool = True,
+            max_retries: int = 3,
+            timeout_seconds: int = 30,
+            description: str = "",
+            metadata: Dict[str, Any] = None
     ):
         self.id = str(uuid.uuid4())
         self.name = name
@@ -290,13 +292,13 @@ class FunctionTrigger(BaseTrigger):
     """Trigger that executes a simple function"""
 
     def __init__(
-        self,
-        name: str,
-        event: TriggerEvent,
-        model: Union[models.Model, str],
-        function: Callable[[TriggerContext], TriggerResult],
-        conditions: List[TriggerCondition] = None,
-        **kwargs
+            self,
+            name: str,
+            event: TriggerEvent,
+            model: Union[models.Model, str],
+            function: Callable[[TriggerContext], TriggerResult],
+            conditions: List[TriggerCondition] = None,
+            **kwargs
     ):
         super().__init__(name, event, model, conditions, **kwargs)
         self.function = function

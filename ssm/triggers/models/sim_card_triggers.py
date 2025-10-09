@@ -23,7 +23,6 @@ def handle_sim_card_quality_change(context: TriggerContext) -> TriggerResult:
     """Update team and batch quality statistics when SIM card quality changes"""
     try:
         sim_card = context.instance
-
         # Update team statistics if SIM is assigned to a team
         if sim_card.team:
             from ssm.models import Team
@@ -65,7 +64,7 @@ def handle_sim_card_quality_change(context: TriggerContext) -> TriggerResult:
                     lot_sim_cards = lot.serial_numbers
                     lot_quality_count = batch_sim_cards.filter(
                         serial_number__in=lot_sim_cards,
-                        quality='quality'
+                        quality='Y'
                     ).count()
                     lot_nonquality_count = len(lot_sim_cards) - lot_quality_count
 

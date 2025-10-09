@@ -1104,13 +1104,19 @@ def handle_postgrest_update(request, model, table_name):
             return supabase_response(data=[])
 
         # Step 3: Update matching records
-        updated_count = filtered_queryset.update(**data)
+        # updated_count = filtered_queryset.update(**data)
+        updated_items = []
+        for obj in filtered_queryset:
+            for key, value in data.items():
+                setattr(obj, key, value)
+            obj.save()  # ✅ Triggers pre_save/post_save signals
+            updated_items.append(serialize_model_instance(obj))
 
         # Step 4: Return updated records by fetching them again
-        updated_queryset = model.objects.filter(id__in=[item['id'] for item in items_to_update])
-        updated_items = []
-        for item in updated_queryset:
-            updated_items.append(serialize_model_instance(item))
+        # updated_queryset = model.objects.filter(id__in=[item['id'] for item in items_to_update])
+        # updated_items = []
+        # for item in updated_queryset:
+        #     updated_items.append(serialize_model_instance(item))
 
         return supabase_response(data=updated_items)
 

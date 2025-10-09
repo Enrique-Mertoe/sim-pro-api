@@ -3,14 +3,15 @@ Django signals integration for the trigger system
 """
 import logging
 import copy
+import traceback
 from typing import Dict, Any, Optional
+
 from django.db.models.signals import (
     pre_save, post_save, pre_delete, post_delete,
     pre_migrate, post_migrate
 )
 from django.dispatch import receiver
 from django.db import models
-from django.contrib.auth import get_user_model
 
 from .trigger_base import TriggerEvent, TriggerContext
 from .trigger_engine import TriggerEngine
@@ -53,11 +54,13 @@ class TriggerSignalHandler:
                 except sender.DoesNotExist:
                     pass
 
-            # Create context for pre_save
+            # Create context for pre_save with auto-injected user
             context = TriggerContext(
                 event=TriggerEvent.PRE_SAVE,
                 model=sender,
                 instance=instance,
+                user=get_current_user(),  # Auto-inject user from request context
+                request=get_current_request(),  # Auto-inject request
                 raw=raw,
                 using=using,
                 update_fields=update_fields
@@ -79,12 +82,14 @@ class TriggerSignalHandler:
             cache_key = f"{sender.__name__}_{instance.pk}"
             old_instance = self._instance_cache.pop(cache_key, None)
 
-            # Create context for post_save
+            # Create context for post_save with auto-injected user
             context = TriggerContext(
                 event=TriggerEvent.POST_SAVE,
                 model=sender,
                 instance=instance,
                 old_instance=old_instance,
+                user=get_current_user(),  # Auto-inject user from request context
+                request=get_current_request(),  # Auto-inject request
                 created=created,
                 raw=raw,
                 using=using,
@@ -95,6 +100,7 @@ class TriggerSignalHandler:
             self.engine.execute_triggers(TriggerEvent.POST_SAVE, context)
 
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in post_save trigger handler: {e}")
 
     def handle_pre_delete(self, sender, instance, using=None, **kwargs):
@@ -103,11 +109,13 @@ class TriggerSignalHandler:
             return
 
         try:
-            # Create context for pre_delete
+            # Create context for pre_delete with auto-injected user
             context = TriggerContext(
                 event=TriggerEvent.PRE_DELETE,
                 model=sender,
                 instance=instance,
+                user=get_current_user(),  # Auto-inject user from request context
+                request=get_current_request(),  # Auto-inject request
                 using=using
             )
 
@@ -123,11 +131,13 @@ class TriggerSignalHandler:
             return
 
         try:
-            # Create context for post_delete
+            # Create context for post_delete with auto-injected user
             context = TriggerContext(
                 event=TriggerEvent.POST_DELETE,
                 model=sender,
                 instance=instance,
+                user=get_current_user(),  # Auto-inject user from request context
+                request=get_current_request(),  # Auto-inject request
                 using=using
             )
 
@@ -211,45 +221,80 @@ class TriggerRequestMiddleware:
         return None
 
 
-# Thread-local storage for request context
-import threading
-_local = threading.local()
+# Context storage for request context (async-safe)
+try:
+    from contextvars import ContextVar
+
+    _request_context = ContextVar('request_context', default=None)
+    _user_context = ContextVar('user_context', default=None)
 
 
-def _set_current_request(request):
-    """Set current request in thread-local storage"""
-    _local.current_request = request
+    def _set_current_request(request):
+        """Set current request in context storage"""
+        _request_context.set(request)
+        # Also try to extract user from request
+        from ssm.utilities import get_user_from_token
+        user = get_user_from_token(request, _auth_user=True)
 
-    # Also try to extract user from request
-    if hasattr(request, 'user') and request.user.is_authenticated:
-        _local.current_user = request.user
-
-
-def _clear_current_request():
-    """Clear current request from thread-local storage"""
-    if hasattr(_local, 'current_request'):
-        delattr(_local, 'current_request')
-    if hasattr(_local, 'current_user'):
-        delattr(_local, 'current_user')
+        if user:
+            _user_context.set(user)
 
 
-def get_current_request():
-    """Get current request from thread-local storage"""
-    return getattr(_local, 'current_request', None)
+    def _clear_current_request():
+        """Clear current request from context storage"""
+        _request_context.set(None)
+        _user_context.set(None)
 
 
-def get_current_user():
-    """Get current user from thread-local storage"""
-    return getattr(_local, 'current_user', None)
+    def get_current_request():
+        """Get current request from context storage"""
+        return _request_context.get()
+
+
+    def get_current_user():
+        """Get current user from context storage"""
+        return _user_context.get()
+
+except ImportError:
+    # Fallback to thread-local for older Python versions
+    import threading
+
+    _local = threading.local()
+
+
+    def _set_current_request(request):
+        """Set current request in thread-local storage"""
+        _local.current_request = request
+        from ssm.utilities import get_user_from_token
+        # Also try to extract user from request
+        _local.current_user = get_user_from_token(request)
+
+
+    def _clear_current_request():
+        """Clear current request from thread-local storage"""
+        if hasattr(_local, 'current_request'):
+            delattr(_local, 'current_request')
+        if hasattr(_local, 'current_user'):
+            delattr(_local, 'current_user')
+
+
+    def get_current_request():
+        """Get current request from thread-local storage"""
+        return getattr(_local, 'current_request', None)
+
+
+    def get_current_user():
+        """Get current user from thread-local storage"""
+        return getattr(_local, 'current_user', None)
 
 
 # Enhanced context creation that includes request/user info
 def create_enhanced_context(
-    event: TriggerEvent,
-    model: models.Model,
-    instance: Optional[models.Model] = None,
-    old_instance: Optional[models.Model] = None,
-    **kwargs
+        event: TriggerEvent,
+        model: models.Model,
+        instance: Optional[models.Model] = None,
+        old_instance: Optional[models.Model] = None,
+        **kwargs
 ) -> TriggerContext:
     """Create trigger context with enhanced information"""
     context = TriggerContext(
@@ -275,11 +320,11 @@ def create_enhanced_context(
 
 # Utility functions for manual trigger execution
 def execute_trigger_manually(
-    trigger_name: str,
-    instance: models.Model,
-    event: TriggerEvent = TriggerEvent.CUSTOM,
-    user: Any = None,
-    metadata: Dict[str, Any] = None
+        trigger_name: str,
+        instance: models.Model,
+        event: TriggerEvent = TriggerEvent.CUSTOM,
+        user: Any = None,
+        metadata: Dict[str, Any] = None
 ):
     """Manually execute a specific trigger"""
     engine = get_trigger_engine()
@@ -297,10 +342,10 @@ def execute_trigger_manually(
 
 
 def trigger_custom_event(
-    event_name: str,
-    instance: models.Model,
-    user: Any = None,
-    metadata: Dict[str, Any] = None
+        event_name: str,
+        instance: models.Model,
+        user: Any = None,
+        metadata: Dict[str, Any] = None
 ):
     """Trigger a custom event for an instance"""
     engine = get_trigger_engine()

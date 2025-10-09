@@ -102,7 +102,7 @@ def serialize_user(user):
     return user_data
 
 
-def get_user_from_token(request) -> User | None:
+def get_user_from_token(request, *, _auth_user=False) -> User | None:
     """Get user from Authorization header or cookies"""
     token = None
 
@@ -120,7 +120,7 @@ def get_user_from_token(request) -> User | None:
 
     try:
         token_obj = Token.objects.get(key=token)
-        return User.objects.get(auth_user=token_obj.user)
+        return token_obj.user if _auth_user else User.objects.get(auth_user=token_obj.user)
     except (Token.DoesNotExist, User.DoesNotExist):
         return None
 

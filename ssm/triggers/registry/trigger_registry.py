@@ -94,15 +94,23 @@ class TriggerRegistry:
         model: Union[models.Model, str, None] = None
     ) -> List[BaseTrigger]:
         """Get all triggers for a specific event and optionally model"""
-        cache_key = f"triggers_{event.value}_{self._get_model_name(model) if model else 'all'}"
+        cache_key = f"trigger_names_{event.value}_{self._get_model_name(model) if model else 'all'}"
 
-        # Try to get from cache first
-        cached_triggers = cache.get(cache_key)
-        if cached_triggers is not None:
-            return cached_triggers
+        # Try to get trigger names from cache first
+        cached_trigger_names = cache.get(cache_key)
 
         with self._lock:
+            if cached_trigger_names is not None:
+                # Retrieve actual trigger objects from memory using cached names
+                triggers = []
+                for trigger_name in cached_trigger_names:
+                    trigger = self.triggers.get(trigger_name)
+                    if trigger and trigger.enabled:
+                        triggers.append(trigger)
+                return triggers
+
             triggers = []
+            trigger_names_to_cache = []
 
             # Get all triggers for this event
             trigger_names = self.event_triggers.get(event, [])
@@ -121,32 +129,42 @@ class TriggerRegistry:
                         continue
 
                 triggers.append(trigger)
+                trigger_names_to_cache.append(trigger_name)
 
-            # Cache the result
-            cache.set(cache_key, triggers, self.cache_timeout)
+            # Cache only the trigger names, not the trigger objects
+            cache.set(cache_key, trigger_names_to_cache, self.cache_timeout)
             return triggers
 
     def get_triggers_for_model(self, model: Union[models.Model, str]) -> List[BaseTrigger]:
         """Get all triggers for a specific model"""
         model_name = self._get_model_name(model)
-        cache_key = f"model_triggers_{model_name}"
+        cache_key = f"model_trigger_names_{model_name}"
 
-        # Try to get from cache first
-        cached_triggers = cache.get(cache_key)
-        if cached_triggers is not None:
-            return cached_triggers
+        # Try to get trigger names from cache first
+        cached_trigger_names = cache.get(cache_key)
 
         with self._lock:
+            if cached_trigger_names is not None:
+                # Retrieve actual trigger objects from memory using cached names
+                triggers = []
+                for trigger_name in cached_trigger_names:
+                    trigger = self.triggers.get(trigger_name)
+                    if trigger and trigger.enabled:
+                        triggers.append(trigger)
+                return triggers
+
             triggers = []
+            trigger_names_to_cache = []
             trigger_names = self.model_triggers.get(model_name, [])
 
             for trigger_name in trigger_names:
                 trigger = self.triggers.get(trigger_name)
                 if trigger and trigger.enabled:
                     triggers.append(trigger)
+                    trigger_names_to_cache.append(trigger_name)
 
-            # Cache the result
-            cache.set(cache_key, triggers, self.cache_timeout)
+            # Cache only the trigger names, not the trigger objects
+            cache.set(cache_key, trigger_names_to_cache, self.cache_timeout)
             return triggers
 
     def get_all_triggers(self, enabled_only: bool = False) -> List[BaseTrigger]:
