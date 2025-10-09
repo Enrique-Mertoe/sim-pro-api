@@ -192,6 +192,14 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
         old_team = getattr(context.old_instance, 'assigned_team', None) if context.old_instance else None
         new_team = lot.assigned_team
         
+        # Update assigned_on timestamp when team is assigned
+        if new_team:
+            lot.assigned_on = timezone.now()
+            lot.save(update_fields=['assigned_on'])
+        elif not new_team:
+            lot.assigned_on = None
+            lot.save(update_fields=['assigned_on'])
+        
         # Update all SIM cards in lot to new team
         from ssm.models import SimCard
         updated_count = SimCard.objects.filter(
