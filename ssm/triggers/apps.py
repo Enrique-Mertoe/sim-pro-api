@@ -32,8 +32,6 @@ class TriggersConfig(AppConfig):
         try:
             # Import all model-specific trigger modules
             from . import models
-            from .models import sim_card_triggers, shop_triggers, lot_triggers, batch_triggers
-            # Import base modules
             from .base import signal_integration
 
             logger.debug("Trigger modules imported successfully")

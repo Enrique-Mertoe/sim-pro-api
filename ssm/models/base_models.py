@@ -302,7 +302,7 @@ class SimCardTransfer(models.Model):
     status = models.CharField(max_length=20, default='PENDING')
     reason = models.TextField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
-    sim_cards = models.JSONField()
+    lots = models.JSONField()  # Array of lot IDs to transfer
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_transfers')
 
     class Meta:
