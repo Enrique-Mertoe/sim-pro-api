@@ -41,7 +41,7 @@ class EmailService:
             # Send email via Resend
             from_email = generate_dynamic_sender(EmailService.DOMAIN)
             params = {
-                "from": f"SSM Support <{from_email}>",
+                "from": f"SSM Support<{from_email}>",
                 "to": [email],
                 "subject": "Reset Your Password",
                 "html": html_content,
@@ -77,8 +77,9 @@ class EmailService:
             })
 
             # Send email via Resend
+            from_email = generate_dynamic_sender(EmailService.DOMAIN)
             params = {
-                "from": f"SSM Support<{getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kaigates.com')}>",
+                "from": f"SSM Support<{from_email}>",
                 "to": [email],
                 "subject": "Verify Your Email Address",
                 "html": html_content,
