@@ -586,6 +586,166 @@ def check_user_before_request(user, data):
 
 from django.contrib.auth.hashers import check_password
 
+
+def suspend_user(user, target_user_id):
+    """
+    Suspend a user account
+    Expected parameters: target_user_id (str)
+    """
+    try:
+        ssm_user = user
+
+        # Check permissions - only admins and team leaders can suspend users
+        if ssm_user.role not in ['admin', 'team_leader']:
+            raise PermissionError("You do not have permission to suspend users")
+
+        target_user = User.objects.get(id=target_user_id)
+
+        # Team leaders can only suspend users in their team
+        if ssm_user.role == 'team_leader' and target_user.team != ssm_user.team:
+            raise PermissionError("Team leaders can only suspend users in their team")
+
+        # Prevent suspending admins
+        if target_user.role == 'admin':
+            raise PermissionError("Cannot suspend admin users")
+
+        # Update user status
+        target_user.is_active = False
+        target_user.status = 'SUSPENDED'
+        target_user.save()
+
+        # Also deactivate auth user
+        if target_user.auth_user:
+            target_user.auth_user.is_active = False
+            target_user.auth_user.save()
+
+        return {
+            'success': True,
+            'message': f'User {target_user.full_name} has been suspended successfully',
+            'user_id': str(target_user.id)
+        }
+
+    except User.DoesNotExist:
+        return {
+            'success': False,
+            'error': 'User not found'
+        }
+    except PermissionError as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to suspend user: {str(e)}'
+        }
+
+
+def activate_user(user, target_user_id):
+    """
+    Activate a suspended user account
+    Expected parameters: target_user_id (str)
+    """
+    try:
+        ssm_user = user
+
+        # Check permissions - only admins and team leaders can activate users
+        if ssm_user.role not in ['admin', 'team_leader']:
+            raise PermissionError("You do not have permission to activate users")
+
+        target_user = User.objects.get(id=target_user_id)
+
+        # Team leaders can only activate users in their team
+        if ssm_user.role == 'team_leader' and target_user.team != ssm_user.team:
+            raise PermissionError("Team leaders can only activate users in their team")
+
+        # Update user status
+        target_user.is_active = True
+        target_user.status = 'ACTIVE'
+        target_user.save()
+
+        # Also activate auth user
+        if target_user.auth_user:
+            target_user.auth_user.is_active = True
+            target_user.auth_user.save()
+
+        return {
+            'success': True,
+            'message': f'User {target_user.full_name} has been activated successfully',
+            'user_id': str(target_user.id)
+        }
+
+    except User.DoesNotExist:
+        return {
+            'success': False,
+            'error': 'User not found'
+        }
+    except PermissionError as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to activate user: {str(e)}'
+        }
+
+
+def delete_user(user, target_user_id):
+    """
+    Soft delete a user account
+    Expected parameters: target_user_id (str)
+    """
+    try:
+        ssm_user = user
+
+        # Check permissions - only admins can delete users
+        if ssm_user.role != 'admin':
+            raise PermissionError("Only administrators can delete users")
+
+        target_user = User.objects.get(id=target_user_id)
+
+        # Prevent deleting admin users
+        if target_user.role == 'admin':
+            raise PermissionError("Cannot delete admin users")
+
+        # Perform soft delete
+        target_user.soft_delete = True
+        target_user.deleted = True
+        target_user.is_active = False
+        target_user.status = 'DELETED'
+        target_user.save()
+
+        # Also deactivate auth user
+        if target_user.auth_user:
+            target_user.auth_user.is_active = False
+            target_user.auth_user.save()
+
+        return {
+            'success': True,
+            'message': f'User {target_user.full_name} has been deleted successfully',
+            'user_id': str(target_user.id)
+        }
+
+    except User.DoesNotExist:
+        return {
+            'success': False,
+            'error': 'User not found'
+        }
+    except PermissionError as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to delete user: {str(e)}'
+        }
+
+
 def reset_user_password(user, target_user_id, new_password):
     """Reset password for a specific user"""
     try:
@@ -649,4 +809,7 @@ functions = {
     'approve_onboarding_request': approve_onboarding_request,
     'create_auth_user': create_auth_user,
     'at_reset_user_password': reset_user_password,
+    'at_suspend_user': suspend_user,
+    'at_activate_user': activate_user,
+    'at_delete_user': delete_user,
 }
