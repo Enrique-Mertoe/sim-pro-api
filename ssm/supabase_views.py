@@ -8,6 +8,7 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.forms import model_to_dict
 from django.http import JsonResponse, HttpResponse, FileResponse
@@ -16,7 +17,6 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-
 
 from .email_service import EmailService
 from .select_parser import build_response_with_select
@@ -103,7 +103,7 @@ def auth_signup(request):
             )
 
             # Build verification link
-            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:4200')
+            frontend_url = getattr(settings, 'FRONTEND_URL')
             verification_link = f"{frontend_url}/auth/confirm-email?token={confirmation_token}"
 
             # Send email verification
