@@ -584,6 +584,62 @@ def check_user_before_request(user, data):
         raise ValueError(f"Failed to check user: {str(e)}")
 
 
+from django.contrib.auth.hashers import check_password
+
+def reset_user_password(user, target_user_id, new_password):
+    """Reset password for a specific user"""
+    try:
+        ssm_user = user
+
+        # Check permissions - only admins and team leaders can reset passwords
+        if ssm_user.role not in ['admin', 'team_leader']:
+            raise PermissionError("Unable to process your request")
+
+        target_user = User.objects.get(id=target_user_id)
+
+        # Team leaders can only reset passwords for users in their team
+        if ssm_user.role == 'team_leader' and target_user.team != ssm_user.team:
+            raise PermissionError("Unable to reset password for this user. Please contact your admin.")
+
+        # Validate new password
+        if not new_password or len(new_password.strip()) < 6:
+            raise RequiredValueError("Password must be at least 6 characters long")
+
+        new_password = new_password.strip()
+
+        # ✅ Ensure new password is not the same as the current one
+        if target_user.auth_user.password and check_password(new_password, target_user.auth_user.password):
+            raise ValueError("New password cannot be the same as the previous password")
+
+        # Reset the password
+        target_user.auth_user.set_password(new_password)
+        target_user.auth_user.save()
+
+        return {
+            'success': True,
+            'message': f'Password reset successfully for {target_user.auth_user.username}',
+            'user_id': str(target_user.id),
+            'username': target_user.auth_user.username
+        }
+
+    except User.DoesNotExist:
+        raise PermissionError("Target user not found")
+    except (PermissionError, RequiredValueError, ValueError) as e:
+        # Return expected errors clearly
+        return {
+            'success': False,
+            'error': str(e)
+        }
+    except Exception as e:
+        # Catch unexpected errors
+        return {
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        }
+
+
+
+
 # Register functions
 functions = {
     'get_users_with_sim_assignment': get_users_with_sim_assignment,
@@ -592,4 +648,5 @@ functions = {
     'check_user_before_request': check_user_before_request,
     'approve_onboarding_request': approve_onboarding_request,
     'create_auth_user': create_auth_user,
+    'at_reset_user_password': reset_user_password,
 }
