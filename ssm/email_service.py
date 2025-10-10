@@ -1,4 +1,6 @@
 import os
+import secrets
+
 import resend
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -7,10 +9,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Initialize Resend with API key from environment
-resend.api_key = os.environ.get("RESEND_API_KEY", "re_BZ55139n_Monz33vQQH8RaSNaYutZ37dp")
+resend.api_key = getattr(settings, "RESEND_API_KEY")
+
+
+def generate_dynamic_sender(domain: str):
+    unique_id = secrets.token_urlsafe(8)
+    return f"no-reply-s-{unique_id}@{domain}"
 
 
 class EmailService:
+    DOMAIN = "mail.nagelecommunication.com"
+
     @staticmethod
     def send_password_reset_email(email: str, reset_token: str, reset_link: str):
         """Send password reset email using Resend"""
@@ -30,8 +39,9 @@ class EmailService:
             })
 
             # Send email via Resend
+            from_email = generate_dynamic_sender(EmailService.DOMAIN)
             params = {
-                "from": f"SSM Support<{getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kaigates.com')}>",
+                "from": f"SSM Support <{from_email}>",
                 "to": [email],
                 "subject": "Reset Your Password",
                 "html": html_content,

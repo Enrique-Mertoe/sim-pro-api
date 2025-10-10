@@ -302,22 +302,17 @@ LOGGING = {
     },
 }
 
-
-
 # Login URLs
 LOGIN_URL = '/dashboard/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/dashboard/login/'
 
 # mail
-DEFAULT_FROM_EMAIL = "support@kaigates.com"
-
+DEFAULT_FROM_EMAIL = "no-reply@nagelecommunication.com"
+RESEND_API_KEY = config('RESEND_API_KEY')
 FRONTEND_URL = config('FRONTEND_URL')
 NAGELE_PAY_API_KEY = config('NAGELE_PAY_API_KEY')
 NAGELE_PAY_API_SECRET = config('NAGELE_PAY_API_SECRET')
 NAGELE_PAYMENT_URL = config('NAGELE_PAYMENT_URL')
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-
-
