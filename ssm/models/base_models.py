@@ -226,6 +226,9 @@ class BatchMetadata(models.Model):
         return self.batch_id
 
 
+
+
+
 class LotMetadata(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

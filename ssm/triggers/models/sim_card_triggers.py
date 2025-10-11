@@ -242,18 +242,6 @@ def handle_sim_card_assignment(context: TriggerContext) -> TriggerResult:
             from ssm.utils.lot_utils import update_lot_assignment_counts
             update_lot_assignment_counts(sim_card.lot)
 
-        # Update shop inventory if SIM is allocated to shops
-        from ssm.models import ShopInventory
-        shop_inventories = ShopInventory.objects.filter(sim_card=sim_card)
-
-        for inventory in shop_inventories:
-            if new_user:
-                inventory.status = 'reserved'
-                inventory.notes = f"Assigned to {new_user.full_name}"
-            else:
-                inventory.status = 'available'
-                inventory.notes = "Assignment removed"
-            inventory.save(update_fields=['status', 'notes'])
 
         # Create activity log
         from ssm.models import ActivityLog
@@ -265,7 +253,6 @@ def handle_sim_card_assignment(context: TriggerContext) -> TriggerResult:
                 'serial_number': sim_card.serial_number,
                 'old_user': str(old_user) if old_user else None,
                 'new_user': str(new_user) if new_user else None,
-                'shop_inventories_updated': shop_inventories.count()
             }
         )
 
@@ -274,7 +261,6 @@ def handle_sim_card_assignment(context: TriggerContext) -> TriggerResult:
             message="SIM card assignment tracked successfully",
             data={
                 'assignment_updated': True,
-                'shop_inventories_updated': shop_inventories.count()
             }
         )
 
