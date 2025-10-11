@@ -149,3 +149,40 @@ def require_ssm_api_key(view_func):
         return view_func(request, *args, **kwargs)
 
     return _wrapped_view
+
+
+from datetime import datetime
+from django.utils import timezone
+
+def ensure_timezone_aware(value):
+    """
+    Ensures a datetime or date value is timezone-aware.
+    Accepts strings, datetime.date, or datetime.datetime.
+    Returns a timezone-aware datetime.
+    """
+    if value is None:
+        return None
+
+    # If string — try to parse it
+    if isinstance(value, str):
+        # Handle plain date (e.g. "2025-04-08")
+        try:
+            dt = datetime.strptime(value.strip(), "%Y-%m-%d")
+        except ValueError:
+            # Try full datetime (e.g. "2025-04-08 14:00:00")
+            try:
+                dt = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                raise ValueError(f"Unsupported date format: {value}")
+    else:
+        dt = value
+
+    # If it's a date (not datetime), convert to datetime
+    if isinstance(dt, datetime) is False:
+        dt = datetime.combine(dt, datetime.min.time())
+
+    # Make timezone aware if naive
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt)
+
+    return dt

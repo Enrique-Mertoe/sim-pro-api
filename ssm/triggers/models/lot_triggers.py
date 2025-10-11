@@ -39,10 +39,6 @@ def handle_lot_quality_update(context: TriggerContext[LotMetadata]) -> TriggerRe
         lot.nonquality_count = non_quality_sims
         lot.save(update_fields=['quality_count', 'nonquality_count'])
 
-        # Update batch metrics if lot belongs to a batch
-        if lot.batch:
-            _update_batch_quality_from_lots(lot.batch)
-
         return TriggerResult(
             success=True,
             message="Lot quality metrics updated successfully",
@@ -338,34 +334,6 @@ def handle_lot_transfer_workflow(context: TriggerContext) -> TriggerResult:
 
 
 # Helper functions
-
-def _update_batch_quality_from_lots(batch):
-    """Update batch quality metrics from all its lots"""
-    try:
-        lots = batch.lots.all()
-        total_quality = sum(lot.quality_count for lot in lots)
-        total_non_quality = sum(lot.nonquality_count for lot in lots)
-
-        # Update batch metadata if exists
-        from ssm.models import BatchMetadata
-        metadata, created = BatchMetadata.objects.get_or_create(batch=batch)
-
-        perf = metadata.performance or {}
-        perf.update({
-            'total_quality_sims': total_quality,
-            'total_non_quality_sims': total_non_quality,
-            'quality_rate': (total_quality / (total_quality + total_non_quality) * 100) if (
-                                                                                                       total_quality + total_non_quality) > 0 else 0
-        })
-
-        metadata.performance = perf
-        metadata.save()
-
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to update batch quality from lots: {e}")
-
 
 def _send_lot_status_notifications(lot, old_status, new_status, user):
     """Send notifications for lot status changes"""

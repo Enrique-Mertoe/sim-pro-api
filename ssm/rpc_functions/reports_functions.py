@@ -73,6 +73,7 @@ def get_teams_with_lots_mapping(user):
 def parse_safaricom_report(user, file_base64: str):
     """
     Parse uploaded Safaricom dealer portal XLS report from base64 encoded file
+    Optimized for large files (100k+ rows) using vectorized pandas operations
 
     Args:
         user: Authenticated user
@@ -82,6 +83,7 @@ def parse_safaricom_report(user, file_base64: str):
     """
     try:
         import base64
+        import numpy as np
 
         # Decode base64 file
         try:
@@ -97,16 +99,15 @@ def parse_safaricom_report(user, file_base64: str):
 
         # Validate required columns
         required_columns = [
-            'TM Date','ID Date', 'Sim Serial Number', 'Top Up Amount',
+            'TM Date', 'ID Date', 'Sim Serial Number', 'Top Up Amount',
             'Cumulative Usage', 'Quality'
         ]
-        print("cols", df.columns)
 
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise Exception(f'Missing required columns: {", ".join(missing_columns)}')
 
-        # Clean and process data
+        # Clean and process data - VECTORIZED OPERATIONS
         df = df.fillna({
             'Top Up Amount': 0,
             'Cumulative Usage': 0,
@@ -116,62 +117,66 @@ def parse_safaricom_report(user, file_base64: str):
             'Territory': '-',
             'Cluster': '-',
             'Role': '-',
-            'Fraud Flagged': 'N'
+            'Fraud Flagged': 'N',
+            'Top Up Date': '',
+            'Agent MSISDN': '',
+            'Fraud Reason': ''
         })
 
-        # Convert data types
+        # Convert data types - VECTORIZED
         df['Top Up Amount'] = pd.to_numeric(df['Top Up Amount'], errors='coerce').fillna(0)
         df['Cumulative Usage'] = pd.to_numeric(df['Cumulative Usage'], errors='coerce').fillna(0)
 
-        # Parse data into records
-        records = []
-        for _, row in df.iterrows():
-            # Format TM Date: '2025-04-21T00:00' -> '2025-04-21'
-            tm_date_raw = row.get('TM Date', '')
-            tm_date = str(tm_date_raw).split('T')[0] if tm_date_raw else ''
+        # OPTIMIZATION 1: Format dates using vectorized string operations
+        # Format TM Date: '2025-04-21T00:00' -> '2025-04-21'
+        df['tm_date'] = df['TM Date'].astype(str).str.split('T').str[0]
 
-            # Format ID Date: '20250421' -> '2025-04-21'
-            id_date_raw = str(row.get('ID Date', '')).strip()
-            id_date = ''
-            if id_date_raw and len(id_date_raw) == 8 and id_date_raw.isdigit():
-                # Convert '20250421' to '2025-04-21'
-                id_date = f"{id_date_raw[0:4]}-{id_date_raw[4:6]}-{id_date_raw[6:8]}"
-            else:
-                id_date = id_date_raw
+        # Format ID Date: '20250421' -> '2025-04-21' - VECTORIZED
+        def format_id_date(date_str):
+            date_str = str(date_str).strip()
+            if date_str and len(date_str) == 8 and date_str.isdigit():
+                return f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
+            return date_str
 
-            # Format Top Up Date similar to TM Date
-            top_up_date_raw = row.get('Top Up Date', '')
-            top_up_date = str(top_up_date_raw).split('T')[0] if top_up_date_raw else ''
+        df['id_date'] = df['ID Date'].apply(format_id_date)
 
-            record = {
-                'tm_date': tm_date,
-                'id_date': id_date,
-                'serial_number': str(row.get('Sim Serial Number', '')).strip(),
-                'top_up_date': top_up_date,
-                'top_up_amount': float(row.get('Top Up Amount', 0)),
-                'agent_msisdn': str(row.get('Agent MSISDN', '')),
-                'ba': str(row.get('BA', '-')),
-                'region': str(row.get('Region', '-')),
-                'territory': str(row.get('Territory', '-')),
-                'cluster': str(row.get('Cluster', '-')),
-                'cumulative_usage': float(row.get('Cumulative Usage', 0)),
-                'fraud_flagged': str(row.get('Fraud Flagged', 'N')),
-                'fraud_reason': str(row.get('Fraud Reason', '')),
-                'role': str(row.get('Role', '-')),
-                'quality': str(row.get('Quality', 'N'))
-            }
-            records.append(record)
+        # Format Top Up Date
+        df['top_up_date'] = df['Top Up Date'].astype(str).str.split('T').str[0]
 
-        # Calculate overall metrics
-        total_records = len(records)
-        quality_count = len([r for r in records if r['quality'] == 'Y'])
+        # OPTIMIZATION 2: Strip and convert serial numbers - VECTORIZED
+        df['serial_number'] = df['Sim Serial Number'].astype(str).str.strip()
+
+        # OPTIMIZATION 3: Convert remaining columns to strings efficiently
+        df['agent_msisdn'] = df['Agent MSISDN'].astype(str)
+        df['ba'] = df['BA'].astype(str)
+        df['region'] = df['Region'].astype(str)
+        df['territory'] = df['Territory'].astype(str)
+        df['cluster'] = df['Cluster'].astype(str)
+        df['fraud_flagged'] = df['Fraud Flagged'].astype(str)
+        df['fraud_reason'] = df['Fraud Reason'].astype(str)
+        df['role'] = df['Role'].astype(str)
+        df['quality'] = df['Quality'].astype(str)
+
+        # OPTIMIZATION 4: Create records dict using to_dict('records') - MUCH FASTER
+        records = df[[
+            'tm_date', 'id_date', 'serial_number', 'top_up_date', 'Top Up Amount',
+            'agent_msisdn', 'ba', 'region', 'territory', 'cluster', 'Cumulative Usage',
+            'fraud_flagged', 'fraud_reason', 'role', 'quality'
+        ]].rename(columns={
+            'Top Up Amount': 'top_up_amount',
+            'Cumulative Usage': 'cumulative_usage'
+        }).to_dict('records')
+
+        # OPTIMIZATION 5: Calculate metrics using pandas vectorized operations
+        total_records = len(df)
+        quality_count = (df['quality'] == 'Y').sum()
         non_quality_count = total_records - quality_count
 
-        # Non-quality breakdown
-        non_quality_records = [r for r in records if r['quality'] != 'Y']
-        low_topup_count = len([r for r in non_quality_records if 0 < r['top_up_amount'] < 50])
-        zero_usage_count = len([r for r in non_quality_records if r['cumulative_usage'] == 0])
-        no_topup_count = len([r for r in non_quality_records if r['top_up_amount'] == 0])
+        # Non-quality breakdown - VECTORIZED
+        non_quality_mask = df['quality'] != 'Y'
+        low_topup_count = ((df['Top Up Amount'] > 0) & (df['Top Up Amount'] < 50) & non_quality_mask).sum()
+        zero_usage_count = ((df['Cumulative Usage'] == 0) & non_quality_mask).sum()
+        no_topup_count = ((df['Top Up Amount'] == 0) & non_quality_mask).sum()
 
         # Calculate percentages
         quality_percentage = round((quality_count / total_records * 100), 2) if total_records > 0 else 0
@@ -187,14 +192,14 @@ def parse_safaricom_report(user, file_base64: str):
             'records': records,
             'total_records': total_records,
             'metrics': {
-                'quality_count': quality_count,
-                'non_quality_count': non_quality_count,
+                'quality_count': int(quality_count),
+                'non_quality_count': int(non_quality_count),
                 'quality_percentage': quality_percentage,
                 'non_quality_percentage': non_quality_percentage,
                 'non_quality_breakdown': {
-                    'low_topup': low_topup_count,
-                    'zero_usage': zero_usage_count,
-                    'no_topup': no_topup_count,
+                    'low_topup': int(low_topup_count),
+                    'zero_usage': int(zero_usage_count),
+                    'no_topup': int(no_topup_count),
                     'low_topup_percentage': low_topup_percentage,
                     'zero_usage_percentage': zero_usage_percentage,
                     'no_topup_percentage': no_topup_percentage
@@ -203,6 +208,9 @@ def parse_safaricom_report(user, file_base64: str):
         }
 
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Failed to parse Safaricom report: {str(e)}')
         raise Exception(str(e))
 
 
@@ -292,11 +300,12 @@ def create_batch_and_lot_for_extras(user, serial_numbers, default_team):
 def save_report_data_chunk(user, records: list, chunk_index: int = 0):
     """
     Save report data chunk to database synchronously
-    Processes chunks of 1000 records sent from frontend
+    Processes chunks of 1000-20,000+ records sent from frontend
+    Optimized for bulk operations with minimal database queries
 
     Args:
         user: Admin user
-        records: List of {serial_number, team_id} objects
+        records: List of {serial_number, team_id, activation_date, usage, top_up_amount, quality} objects
         chunk_index: Index of this chunk (for tracking)
 
     Returns:
@@ -304,15 +313,18 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
             'success': True,
             'processed': int,
             'created': int,
+            'updated': int,
             'chunk_index': int
         }
     """
     try:
         from django.utils import timezone
+        from django.db import transaction
+        from ssm.utilities import ensure_timezone_aware
 
         # Separate extras from regular records
-        extras_records = [r for r in records if r['team_id'] is None]
-        regular_records = [r for r in records if r['team_id'] is not None]
+        extras_records = [r for r in records if r.get('team_id') is None]
+        regular_records = [r for r in records if r.get('team_id') is not None]
 
         created_count = 0
         updated_count = 0
@@ -322,7 +334,6 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
             default_team = get_or_create_default_team(user)
 
             # Get or create batch and lot for extras
-            # Use a consistent batch_id based on today's date
             batch_id = f"REPORT_EXTRAS_{timezone.now().strftime('%Y%m%d')}"
 
             # Try to get existing batch for today, or create new one
@@ -333,7 +344,7 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                     'order_number': f"AUTO_{batch_id}",
                     'company_name': "Auto-generated from Report",
                     'date_created': timezone.now().isoformat(),
-                    'quantity': 0,  # Will be updated
+                    'quantity': 0,
                     'created_by_user': user,
                     'lot_numbers': [f"{batch_id}_LOT1"]
                 }
@@ -353,44 +364,111 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                 }
             )
 
-            # Create SIM cards for extras
-            extras_serials = []
-            for record in extras_records:
-                sim_card, created = SimCard.objects.get_or_create(
-                    serial_number=record['serial_number'],
-                    admin=user,
-                    defaults={
-                        'team': default_team,
-                        'batch': batch,
-                        'lot': lot.lot_number,
-                        "activation_date": record['activation_date'],
-                        "usage": record['usage'],
-                        "top_up_amount": record['top_up_amount'],
-                        "quality": record['quality'],
-                    }
+            # OPTIMIZATION 1: Fetch existing SIM cards in one query
+            serial_numbers = [r['serial_number'] for r in extras_records]
+            existing_sim_cards = set(
+                SimCard.objects.filter(
+                    serial_number__in=serial_numbers,
+                    admin=user
+                ).values_list('serial_number', flat=True)
+            )
+
+            # OPTIMIZATION 2: Separate new vs existing records
+            new_records = [r for r in extras_records if r['serial_number'] not in existing_sim_cards]
+            existing_records = [r for r in extras_records if r['serial_number'] in existing_sim_cards]
+
+            # OPTIMIZATION 3: Bulk create new SIM cards
+            if new_records:
+                new_sim_cards = []
+                new_serials = []
+
+                for record in new_records:
+                    new_sim_cards.append(SimCard(
+                        serial_number=record['serial_number'],
+                        admin=user,
+                        team=default_team,
+                        batch=batch,
+                        lot=lot.lot_number,
+                        activation_date=ensure_timezone_aware(record.get('activation_date')),
+                        usage=record.get('usage', 0),
+                        top_up_amount=record.get('top_up_amount', 0),
+                        quality=record.get('quality', 'N'),
+                    ))
+                    new_serials.append(record['serial_number'])
+
+                # Bulk create - single query instead of N queries
+                with transaction.atomic():
+                    SimCard.objects.bulk_create(new_sim_cards, batch_size=1000, ignore_conflicts=True)
+                    created_count = len(new_sim_cards)
+
+                    # OPTIMIZATION 4: Update lot serial numbers once
+                    current_serials = lot.serial_numbers if lot.serial_numbers else []
+                    lot.serial_numbers = list(set(current_serials + new_serials))  # Use set to avoid duplicates
+                    lot.total_sims = len(lot.serial_numbers)
+                    lot.save(update_fields=['serial_numbers', 'total_sims'])
+
+                    # Update batch quantity
+                    batch.quantity = lot.total_sims
+                    batch.save(update_fields=['quantity'])
+
+            # OPTIMIZATION 5: Bulk update existing SIM cards if needed
+            if existing_records:
+                # Build update list
+                sim_cards_to_update = []
+                serial_numbers_to_update = [r['serial_number'] for r in existing_records]
+
+                existing_sims = SimCard.objects.filter(
+                    serial_number__in=serial_numbers_to_update,
+                    admin=user
                 )
 
-                if created:
-                    created_count += 1
-                    extras_serials.append(record['serial_number'])
-                else:
-                    updated_count += 1
+                for sim_card in existing_sims:
+                    # Find matching record
+                    record = next((r for r in existing_records if r['serial_number'] == sim_card.serial_number), None)
+                    if record:
+                        # Update fields
+                        sim_card.activation_date = ensure_timezone_aware(record.get('activation_date'))
+                        sim_card.usage = record.get('usage', 0)
+                        sim_card.top_up_amount = record.get('top_up_amount', 0)
+                        sim_card.quality = record.get('quality', 'N')
+                        sim_cards_to_update.append(sim_card)
 
-            # Update lot's serial numbers if we created any
-            if extras_serials:
-                current_serials = lot.serial_numbers if lot.serial_numbers else []
-                lot.serial_numbers = current_serials + extras_serials
-                lot.total_sims = len(lot.serial_numbers)
-                lot.save()
-
-                # Update batch quantity
-                batch.quantity = lot.total_sims
-                batch.save()
+                # Bulk update - single query
+                if sim_cards_to_update:
+                    SimCard.objects.bulk_update(
+                        sim_cards_to_update,
+                        ['activation_date', 'usage', 'top_up_amount', 'quality'],
+                        batch_size=1000
+                    )
+                    updated_count = len(sim_cards_to_update)
 
         # Process regular records (these already exist in the system)
         if regular_records:
-            # Just count them for now - they're already in the system from batch assignment
-            updated_count += len(regular_records)
+            # OPTIMIZATION 6: Bulk update regular records if needed
+            serial_numbers_regular = [r['serial_number'] for r in regular_records]
+
+            existing_regulars = SimCard.objects.filter(
+                serial_number__in=serial_numbers_regular,
+                admin=user
+            )
+
+            regulars_to_update = []
+            for sim_card in existing_regulars:
+                record = next((r for r in regular_records if r['serial_number'] == sim_card.serial_number), None)
+                if record:
+                    sim_card.activation_date = ensure_timezone_aware(record.get('activation_date'))
+                    sim_card.usage = record.get('usage', 0)
+                    sim_card.top_up_amount = record.get('top_up_amount', 0)
+                    sim_card.quality = record.get('quality', 'N')
+                    regulars_to_update.append(sim_card)
+
+            if regulars_to_update:
+                SimCard.objects.bulk_update(
+                    regulars_to_update,
+                    ['activation_date', 'usage', 'top_up_amount', 'quality'],
+                    batch_size=1000
+                )
+                updated_count += len(regulars_to_update)
 
         return {
             'success': True,
@@ -401,6 +479,9 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
         }
 
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Failed to process chunk {chunk_index}: {str(e)}')
         raise Exception(f'Failed to process chunk {chunk_index}: {str(e)}')
 
 

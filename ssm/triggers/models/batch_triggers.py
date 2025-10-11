@@ -6,9 +6,70 @@ from django.utils import timezone
 from django.db.models import Sum, Count, Avg
 
 from ..base.trigger_decorator import (
-    post_save_trigger, field_changed_trigger, conditional_trigger
+    post_save_trigger, field_changed_trigger, conditional_trigger, pre_delete_trigger
 )
 from ..base.trigger_base import TriggerContext, TriggerResult, TriggerEvent
+
+
+@pre_delete_trigger(
+    'BatchMetadata',
+    name='batch_cascade_delete',
+    description='Cascade delete batch lots and SIM cards before batch deletion'
+)
+def handle_batch_cascade_delete(context: TriggerContext) -> TriggerResult:
+    """Delete all lots and SIM cards associated with a batch before deleting the batch"""
+    try:
+        batch = context.instance
+
+        # Get all lots in this batch
+        from ssm.models import LotMetadata, SimCard
+        lots = LotMetadata.objects.filter(batch=batch)
+
+        deleted_counts = {
+            'lots': 0,
+            'sim_cards': 0
+        }
+        print("lots",lots)
+        # For each lot, delete SIM cards with that lot number
+        for lot in lots:
+            # Delete SIM cards that belong to this lot
+            sim_cards_deleted = SimCard.objects.filter(
+                lot=lot.lot_number,
+                batch=batch
+            ).delete()
+            print("found",sim_cards_deleted)
+            deleted_counts['sim_cards'] += sim_cards_deleted[0] if sim_cards_deleted else 0
+
+        # Delete all lots in the batch
+        lots_deleted = lots.delete()
+        deleted_counts['lots'] = lots_deleted[0] if lots_deleted else 0
+
+        # Create activity log
+        from ssm.models import ActivityLog
+        if context.user:
+            ActivityLog.objects.create(
+                user=context.user,
+                action_type='batch_cascade_deleted',
+                details={
+                    'batch_id': str(batch.id),
+                    'batch_number': batch.batch_id,
+                    'lots_deleted': deleted_counts['lots'],
+                    'sim_cards_deleted': deleted_counts['sim_cards']
+                }
+            )
+
+        return TriggerResult(
+            success=True,
+            message=f"Cascade delete completed: {deleted_counts['lots']} lots and {deleted_counts['sim_cards']} SIM cards deleted",
+            data=deleted_counts
+        )
+
+    except Exception as e:
+        return TriggerResult(
+            success=False,
+            message=f"Failed to cascade delete batch: {str(e)}",
+            error=e
+        )
 
 
 @field_changed_trigger(
