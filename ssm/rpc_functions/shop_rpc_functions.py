@@ -3,6 +3,7 @@ from django.db.models import Q, Sum, Count, Avg, F
 from datetime import datetime, timedelta
 from decimal import Decimal
 import uuid
+import calendar
 
 from django.utils import timezone
 
@@ -748,11 +749,152 @@ def get_shop_analytics(user, shop_id, start_date=None, end_date=None):
     }
 
 
+def get_shop_summary(user, shop_id=None):
+    """
+    Get shop summary statistics for current user's shops
+    Includes month-to-date sales, comparison with last month, and forecasts
+    """
+    now = timezone.now()
+    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Calculate same period last month
+    if now.month == 1:
+        last_month = 12
+        last_year = now.year - 1
+    else:
+        last_month = now.month - 1
+        last_year = now.year
+
+    last_month_start = now.replace(year=last_year, month=last_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_same_day = now.replace(year=last_year, month=last_month, day=min(now.day, calendar.monthrange(last_year, last_month)[1]))
+
+    # Get last day of current month
+    _, last_day_of_month = calendar.monthrange(now.year, now.month)
+    current_month_end = now.replace(day=last_day_of_month, hour=23, minute=59, second=59, microsecond=999999)
+
+    # Get last month end
+    _, last_month_last_day = calendar.monthrange(last_year, last_month)
+    last_month_end = last_month_start.replace(day=last_month_last_day, hour=23, minute=59, second=59, microsecond=999999)
+
+    # Build shop query
+    base_shops = Shop.objects.filter(admin=user if user.role == "admin" and not user.admin else user.admin)
+    if user.admin and user.role not in ["admin"]:
+        base_shops = base_shops.filter(owner=user)
+
+    if shop_id:
+        base_shops = base_shops.filter(id=shop_id)
+
+    shop_ids = list(base_shops.values_list('id', flat=True))
+
+    # Month-to-date sales (current month from day 1 to today)
+    mtd_sales = ProductSale.objects.filter(
+        shop_id__in=shop_ids,
+        status='completed',
+        sale_date__gte=current_month_start,
+        sale_date__lte=now
+    ).aggregate(
+        total_revenue=Sum('total_amount'),
+        total_count=Count('id')
+    )
+
+    # Last month's sales for same time period (day 1 to same day as today)
+    last_month_same_period_sales = ProductSale.objects.filter(
+        shop_id__in=shop_ids,
+        status='completed',
+        sale_date__gte=last_month_start,
+        sale_date__lte=last_month_same_day
+    ).aggregate(
+        total_revenue=Sum('total_amount'),
+        total_count=Count('id')
+    )
+
+    # Last month's total sales (entire month)
+    last_month_total_sales = ProductSale.objects.filter(
+        shop_id__in=shop_ids,
+        status='completed',
+        sale_date__gte=last_month_start,
+        sale_date__lte=last_month_end
+    ).aggregate(
+        total_revenue=Sum('total_amount'),
+        total_count=Count('id')
+    )
+
+    # Calculate metrics
+    mtd_revenue = float(mtd_sales['total_revenue'] or 0)
+    last_month_same_period_revenue = float(last_month_same_period_sales['total_revenue'] or 0)
+    last_month_total_revenue = float(last_month_total_sales['total_revenue'] or 0)
+
+    # Calculate percentage change compared to last month same period
+    if last_month_same_period_revenue > 0:
+        mtd_change_percentage = ((mtd_revenue - last_month_same_period_revenue) / last_month_same_period_revenue) * 100
+    else:
+        mtd_change_percentage = 100.0 if mtd_revenue > 0 else 0.0
+
+    # Forecast for current month
+    days_elapsed = (now - current_month_start).days + 1
+    days_in_month = last_day_of_month
+
+    if days_elapsed > 0:
+        daily_average = mtd_revenue / days_elapsed
+        forecasted_revenue = daily_average * days_in_month
+    else:
+        forecasted_revenue = 0.0
+
+    # Calculate forecast vs last month percentage
+    if last_month_total_revenue > 0:
+        forecast_change_percentage = ((forecasted_revenue - last_month_total_revenue) / last_month_total_revenue) * 100
+    else:
+        forecast_change_percentage = 100.0 if forecasted_revenue > 0 else 0.0
+
+    # Get total inventory value (all products across all user's shops)
+    total_inventory_value = ShopProductInventory.objects.filter(
+        shop_id__in=shop_ids
+    ).aggregate(
+        total_value=Sum(F('quantity') * F('product__selling_price'))
+    )
+
+    inventory_value = float(total_inventory_value['total_value'] or 0)
+
+    return {
+        'month_to_date': {
+            'revenue': mtd_revenue,
+            'sales_count': mtd_sales['total_count'] or 0,
+            'change_percentage': round(mtd_change_percentage, 2),
+            'trend': 'up' if mtd_change_percentage >= 0 else 'down'
+        },
+        'last_month_same_period': {
+            'revenue': last_month_same_period_revenue,
+            'sales_count': last_month_same_period_sales['total_count'] or 0,
+            'period_start': last_month_start.strftime('%b %d'),
+            'period_end': last_month_same_day.strftime('%b %d')
+        },
+        'forecast': {
+            'total_revenue': round(forecasted_revenue, 2),
+            'change_percentage': round(forecast_change_percentage, 2),
+            'trend': 'up' if forecast_change_percentage >= 0 else 'down'
+        },
+        'last_month_total': {
+            'revenue': last_month_total_revenue,
+            'sales_count': last_month_total_sales['total_count'] or 0
+        },
+        'inventory': {
+            'total_value': inventory_value,
+            'product_count': ShopProductInventory.objects.filter(shop_id__in=shop_ids).count()
+        },
+        'period_info': {
+            'current_month': now.strftime('%B %Y'),
+            'days_elapsed': days_elapsed,
+            'days_in_month': days_in_month
+        }
+    }
+
+
 # Export all functions for RPC registration
 functions = {
     # Shop management
     'get_all_shops': get_all_shops,
     'create_shop': create_shop,
+    'get_shop_summary': get_shop_summary,
 
     # Product management
     'get_all_products': get_all_products,
