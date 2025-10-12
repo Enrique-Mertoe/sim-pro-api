@@ -98,6 +98,15 @@ def handle_sim_card_status_change(context: TriggerContext) -> TriggerResult:
         old_status = getattr(context.old_instance, 'status', None) if context.old_instance else None
         new_status = sim_card.status
 
+        # Set registered_on timestamp if status changed to REGISTERED
+        if new_status == 'REGISTERED':
+            from django.utils import timezone
+            sim_card.registered_on = timezone.now()
+            # Set registered_by_user to the user who made the change
+            # if context.user:
+            #     sim_card.registered_by_user = context.user
+            sim_card.save(update_fields=['registered_on'])
+
         # Create notification message
         message = f"SIM Card {sim_card.serial_number} status changed from {old_status} to {new_status}"
 
@@ -129,14 +138,18 @@ def handle_sim_card_status_change(context: TriggerContext) -> TriggerResult:
                         'sim_card_id': str(sim_card.id),
                         'serial_number': sim_card.serial_number,
                         'old_status': old_status,
-                        'new_status': new_status
+                        'new_status': new_status,
+                        'registered_on': sim_card.registered_on.isoformat() if sim_card.registered_on else None
                     }
                 )
 
         return TriggerResult(
             success=True,
             message=f"Status change notifications sent to {len(recipients)} users",
-            data={'recipients_count': len(recipients)}
+            data={
+                'recipients_count': len(recipients),
+                'registered_on_set': new_status == 'REGISTERED' and sim_card.registered_on is not None
+            }
         )
 
     except Exception as e:

@@ -195,6 +195,10 @@ class SimCard(models.Model):
     ba_msisdn = models.CharField(max_length=50, null=True, blank=True)
     mobigo = models.CharField(max_length=50, null=True, blank=True)
 
+    # Add custom QuerySet
+    from .querysets import SimCardQuerySet
+    objects = SimCardQuerySet.as_manager()
+
     class Meta:
         db_table = 'sim_cards'
 

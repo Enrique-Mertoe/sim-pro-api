@@ -102,17 +102,10 @@ def tl_get_dashboard_stats(user, ):
         yesterday_start = today_start - timedelta(days=1)
         yesterday_end = today_start
 
-        # Today's registrations
-        todays_registration = team_sim_cards.filter(
-            registered_on__gte=today_start,
-            registered_on__lt=today_end
-        ).count()
-
-        # Yesterday's registrations for comparison
-        yesterdays_registration = team_sim_cards.filter(
-            registered_on__gte=yesterday_start,
-            registered_on__lt=yesterday_end
-        ).count()
+        # Today's registrations using custom QuerySet
+        todays_registration = team_sim_cards.registered_today().count()
+        # Yesterday's registrations for comparison (from 00:00:00 yesterday to 00:00:00 today, exclusive)
+        yesterdays_registration = team_sim_cards.registered_yesterday().count()
 
         # Calculate percentage change
         if yesterdays_registration > 0:
