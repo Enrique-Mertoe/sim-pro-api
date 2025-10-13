@@ -733,7 +733,7 @@ server {
     listen 80;
     server_name _;
     
-    client_max_body_size 16M;
+    client_max_body_size 50M;
     
     # Security headers
     add_header X-Frame-Options DENY;
