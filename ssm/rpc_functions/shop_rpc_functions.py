@@ -66,6 +66,7 @@ def get_all_shops(user):
             "owner": {
                 "id": shop.owner.id,
                 "full_name": shop.owner.full_name,
+                "name": shop.owner.full_name,
             } if shop.owner else None,
             'created_at': shop.created_at.isoformat(),
         })
