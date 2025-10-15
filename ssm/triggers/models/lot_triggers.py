@@ -187,7 +187,7 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
         lot = context.instance
         old_team = getattr(context.old_instance, 'assigned_team', None) if context.old_instance else None
         new_team = lot.assigned_team
-        
+
         # Update assigned_on timestamp when team is assigned
         if new_team:
             lot.assigned_on = timezone.now()
@@ -195,14 +195,34 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
         elif not new_team:
             lot.assigned_on = None
             lot.save(update_fields=['assigned_on'])
-        
+
         # Update all SIM cards in lot to new team
         from ssm.models import SimCard
         updated_count = SimCard.objects.filter(
             serial_number__in=lot.serial_numbers
         ).update(team=new_team)
         update_lot_assignment_counts(lot.lot_number)
-        
+
+        # Update batch teams field
+        batch = lot.batch
+        if batch:
+            # Build teams structure with lot assignments
+            teams_dict = {}
+            for batch_lot in batch.lots.all():
+                if batch_lot.assigned_team_id and batch_lot.assigned_team:
+                    team_id = str(batch_lot.assigned_team_id)
+                    if team_id not in teams_dict:
+                        teams_dict[team_id] = {
+                            'teamId': team_id,
+                            'teamName': batch_lot.assigned_team.name,
+                            'lotNumbers': []
+                        }
+                    teams_dict[team_id]['lotNumbers'].append(batch_lot.lot_number)
+
+            # Update batch teams field
+            batch.teams = list(teams_dict.values())
+            batch.save(update_fields=['teams'])
+
         # Create activity log
         from ssm.models import ActivityLog
         ActivityLog.objects.create(
@@ -216,11 +236,11 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
                 'sim_cards_updated': updated_count
             }
         )
-        
+
         # Send notifications
         from ssm.models import Notification
         recipients = []
-        
+
         # Notify old team leader
         if old_team and old_team.leader:
             recipients.append(old_team.leader)
@@ -235,7 +255,7 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
                     'action': 'removed'
                 }
             )
-        
+
         # Notify new team leader
         if new_team and new_team.leader:
             recipients.append(new_team.leader)
@@ -250,7 +270,7 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
                     'action': 'assigned'
                 }
             )
-        
+
         return TriggerResult(
             success=True,
             message=f"Lot team changed from {old_team} to {new_team}",
@@ -258,10 +278,11 @@ def handle_lot_team_change(context: TriggerContext[LotMetadata]) -> TriggerResul
                 'old_team': old_team.name if old_team else None,
                 'new_team': new_team.name if new_team else None,
                 'sim_cards_updated': updated_count,
-                'notifications_sent': len(recipients)
+                'notifications_sent': len(recipients),
+                'batch_teams_updated': len(batch.teams) if batch else 0
             }
         )
-        
+
     except Exception as e:
         return TriggerResult(
             success=False,
