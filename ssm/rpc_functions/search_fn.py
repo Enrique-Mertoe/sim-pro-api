@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Q, Subquery
 from ..models.base_models import User, Team, SimCard, BatchMetadata, LotMetadata
 from ..models.shop_management_models import Shop, Product, ProductCategory, Supplier
 from ..models.product_instance_model import ProductInstance
@@ -26,6 +26,9 @@ def get_searched(user, query):
     # Normalize query
     query = query.strip().lower()
     admin = user if user.role == "admin" else user.admin
+    is_admin = user.role == "admin"
+    is_team_leader = user.role == "team_leader"
+    is_ba = user.role == "van_staff"
 
     # Initialize results dictionary
     results = {
@@ -49,7 +52,12 @@ def get_searched(user, query):
         Q(username__icontains=query) |
         Q(id_number__icontains=query) |
         Q(role__icontains=query)
-    ).filter(admin=admin)[:10]
+    ).filter(admin=admin)
+
+    if is_team_leader or is_ba:
+        user_results = user_results.filter(team=user.team)
+
+    user_results = user_results.distinct()[:10]
 
     for user_obj in user_results:
         matched_fields = []
@@ -57,7 +65,7 @@ def get_searched(user, query):
         if query in (user_obj.email or '').lower(): matched_fields.append('email')
         if query in (user_obj.phone_number or '').lower(): matched_fields.append('phone')
         if query in (user_obj.role or '').lower(): matched_fields.append('role')
-        
+
         results["users"].append({
             "id": str(user_obj.id),
             "name": user_obj.full_name,
@@ -73,14 +81,20 @@ def get_searched(user, query):
         Q(name__icontains=query) |
         Q(region__icontains=query) |
         Q(territory__icontains=query)
-    ).filter(admin=admin)[:10]
+    ).filter(admin=admin)
+
+    if is_ba:
+        team_results = team_results.filter(id=user.team.id)
+    if is_team_leader:
+        team_results = team_results.filter(leader=user)
+    team_results = team_results.distinct()[:10]
 
     for team in team_results:
         matched_fields = []
         if query in (team.name or '').lower(): matched_fields.append('name')
         if query in (team.region or '').lower(): matched_fields.append('region')
         if query in (team.territory or '').lower(): matched_fields.append('territory')
-        
+
         results["teams"].append({
             "id": str(team.id),
             "name": team.name,
@@ -158,7 +172,29 @@ def get_searched(user, query):
         Q(ba_msisdn__icontains=query) |
         Q(mobigo__icontains=query) |
         Q(status__icontains=query)
-    ).filter(admin=admin)[:10]
+    )
+    if is_admin:
+        # Admin sees SIMs from their own batches or lots created by them
+        sim_results = sim_results.filter(
+            Q(admin=admin) |
+            Q(batch__admin=admin) |
+            Q(lot__in=Subquery(
+                LotMetadata.objects.filter(admin=admin).values('lot_number')
+            ))
+        )
+    elif is_team_leader:
+        # Team leader sees SIMs in lots assigned to their team
+        sim_results = sim_results.filter(
+            lot__in=Subquery(
+                LotMetadata.objects.filter(assigned_team__leader=user).values('lot_number')
+            )
+        )
+    elif is_ba:
+        # BA sees SIMs assigned to them or in their team's lots
+        sim_results = sim_results.filter(
+            Q(assigned_to_user=user)
+        )
+    sim_results = sim_results.distinct()[:10]
 
     for sim in sim_results:
         matched_fields = []
@@ -166,7 +202,7 @@ def get_searched(user, query):
         if query in (sim.ba_msisdn or '').lower(): matched_fields.append('msisdn')
         if query in (sim.mobigo or '').lower(): matched_fields.append('mobigo')
         if query in (sim.status or '').lower(): matched_fields.append('status')
-        
+
         results["sim_cards"].append({
             "id": str(sim.id),
             "serial_number": sim.serial_number,
@@ -178,13 +214,18 @@ def get_searched(user, query):
         })
 
     # Search Batches
-    batch_results = BatchMetadata.objects.filter(
-        Q(batch_id__icontains=query) |
-        Q(order_number__icontains=query) |
-        Q(requisition_number__icontains=query) |
-        Q(company_name__icontains=query) |
-        Q(collection_point__icontains=query)
-    ).filter(admin=admin)[:10]
+
+    if is_admin:
+        batch_results = BatchMetadata.objects.filter(
+            Q(batch_id__icontains=query) |
+            Q(order_number__icontains=query) |
+            Q(requisition_number__icontains=query) |
+            Q(company_name__icontains=query) |
+            Q(collection_point__icontains=query)
+        ).filter(admin=admin)[:10]
+
+    else:
+        batch_results = BatchMetadata.objects.none()
 
     for batch in batch_results:
         results["batches"].append({
@@ -201,7 +242,15 @@ def get_searched(user, query):
         Q(lot_number__icontains=query) |
         Q(status__icontains=query) |
         Q(batch__batch_id__icontains=query)
-    ).filter(admin=admin)[:10]
+    ).filter(admin=admin)
+
+    if is_team_leader:
+        lot_results = lot_results.filter(assigned_team__leader=user)
+
+    if is_ba:
+        lot_results = LotMetadata.objects.none()
+
+    lot_results = lot_results.distinct()[:10]
 
     for lot in lot_results:
         results["lots"].append({
