@@ -353,7 +353,7 @@ def team_allocation(user):
             ).values_list('lot_number', flat=True)
             team_sim_cards = SimCard.objects.filter(
                 lot__in=team_lots,
-                admin=ssm_user.admin
+                admin=ssm_user.admin or user
             )
             total_allocated = team_sim_cards.count()
             assigned = team_sim_cards.filter(
