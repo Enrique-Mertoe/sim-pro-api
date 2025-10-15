@@ -5,7 +5,7 @@ from datetime import timezone, timedelta
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.utils import timezone
-from ..models import User, Team, SimCard
+from ..models import User, Team, SimCard, LotMetadata
 
 SSMAuthUser = get_user_model()
 
@@ -267,7 +267,6 @@ def team_overview_data(user):
     if user.role not in ['admin', 'team_leader']:
         raise PermissionError("Access denied")
 
-
     # Get user's team
     team = user.team
     if not team:
@@ -337,6 +336,61 @@ def team_overview_data(user):
     }
 
 
+def team_allocation(user):
+    """Get all teams with their allocation breakdown"""
+    try:
+        ssm_user = user
+        if ssm_user.role not in ['admin']:
+            raise PermissionError("Only admins and team leaders can view team allocation")
+
+        teams = Team.objects.filter(admin=user.admin or user).all()
+        allocation_data = []
+
+        for team in teams:
+            team_lots = LotMetadata.objects.filter(
+                assigned_team=team,
+                admin=user
+            ).values_list('lot_number', flat=True)
+            team_sim_cards = SimCard.objects.filter(
+                lot__in=team_lots,
+                admin=ssm_user.admin
+            )
+            total_allocated = team_sim_cards.count()
+            assigned = team_sim_cards.filter(
+                assigned_to_user__isnull=False
+            ).count()
+            unassigned = team_sim_cards.filter(
+                assigned_to_user__isnull=True
+            ).count()
+
+            allocation_data.append({
+                'team_id': str(team.id),
+                'team_name': team.name,
+                'region': team.region or 'N/A',
+                'territory': team.territory or 'N/A',
+                'leader': {
+                    'id': str(team.leader.id) if team.leader else None,
+                    'name': f"{team.leader.full_name}".strip() if team.leader else 'No Leader',
+                    'email': team.leader.auth_user.email if team.leader else None,
+                } if team.leader else None,
+                'allocated': total_allocated,
+                'assigned': assigned,
+                'unassigned': unassigned,
+                'is_active': team.is_active
+            })
+
+        return {
+            'teams': allocation_data,
+            'total_teams': len(allocation_data),
+            'total_allocated': sum(t['allocated'] for t in allocation_data),
+            'total_assigned': sum(t['assigned'] for t in allocation_data),
+            'total_unassigned': sum(t['unassigned'] for t in allocation_data)
+        }
+
+    except User.DoesNotExist:
+        raise PermissionError("User profile not found")
+
+
 # Register functions
 functions = {
     'get_my_team_details': get_my_team_details,
@@ -345,4 +399,5 @@ functions = {
     'get_teams_analytics': get_teams_analytics,
     'get_groups_summery': get_groups_summery,
     'team_overview_data': team_overview_data,
+    'team_allocation': team_allocation,
 }
