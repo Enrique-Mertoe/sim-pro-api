@@ -13,73 +13,73 @@ from ssm.models import LotMetadata
 from ...utils.lot_utils import update_lot_assignment_counts
 
 
-@post_save_trigger(
-    'LotMetadata',
-    name='lot_serial_numbers_creation',
-    description='Create SIM card records when lot is created with serial numbers'
-)
-def handle_lot_serial_numbers_creation(context: TriggerContext[LotMetadata]) -> TriggerResult:
-    """Create SIM card records from lot serial numbers on lot creation"""
-    try:
-        lot = context.instance
-
-        # Only process if this is a new lot with serial numbers
-        if context.created and lot.serial_numbers:
-            from ssm.models import SimCard
-
-            # Get existing serial numbers to avoid duplicates
-            existing_serials = set(
-                SimCard.objects.filter(
-                    serial_number__in=lot.serial_numbers
-                ).values_list('serial_number', flat=True)
-            )
-
-            # Create SIM card records for new serial numbers
-            sim_cards_to_create = []
-            for serial_number in lot.serial_numbers:
-                if serial_number not in existing_serials:
-                    sim_cards_to_create.append(
-                        SimCard(
-                            serial_number=serial_number,
-                            batch=lot.batch,
-                            lot=lot.lot_number,
-                            team=lot.assigned_team,
-                            admin=lot.admin,
-                            status='PENDING',
-                            quality='N',
-                            match='Y'
-                        )
-                    )
-
-            # Bulk create SIM cards
-            created_count = 0
-            if sim_cards_to_create:
-                SimCard.objects.bulk_create(sim_cards_to_create, batch_size=500)
-                created_count = len(sim_cards_to_create)
-
-            return TriggerResult(
-                success=True,
-                message=f"Created {created_count} SIM card records for lot {lot.lot_number}",
-                data={
-                    'lot_number': lot.lot_number,
-                    'total_serials': len(lot.serial_numbers),
-                    'created_count': created_count,
-                    'skipped_duplicates': len(existing_serials)
-                }
-            )
-
-        return TriggerResult(
-            success=True,
-            message="No serial numbers to process",
-            data={}
-        )
-
-    except Exception as e:
-        return TriggerResult(
-            success=False,
-            message=f"Failed to create SIM cards from lot serial numbers: {str(e)}",
-            error=e
-        )
+# @post_save_trigger(
+#     'LotMetadata',
+#     name='lot_serial_numbers_creation',
+#     description='Create SIM card records when lot is created with serial numbers'
+# )
+# def handle_lot_serial_numbers_creation(context: TriggerContext[LotMetadata]) -> TriggerResult:
+#     """Create SIM card records from lot serial numbers on lot creation"""
+#     try:
+#         lot = context.instance
+#
+#         # Only process if this is a new lot with serial numbers
+#         if context.created and lot.serial_numbers:
+#             from ssm.models import SimCard
+#
+#             # Get existing serial numbers to avoid duplicates
+#             existing_serials = set(
+#                 SimCard.objects.filter(
+#                     serial_number__in=lot.serial_numbers
+#                 ).values_list('serial_number', flat=True)
+#             )
+#
+#             # Create SIM card records for new serial numbers
+#             sim_cards_to_create = []
+#             for serial_number in lot.serial_numbers:
+#                 if serial_number not in existing_serials:
+#                     sim_cards_to_create.append(
+#                         SimCard(
+#                             serial_number=serial_number,
+#                             batch=lot.batch,
+#                             lot=lot.lot_number,
+#                             team=lot.assigned_team,
+#                             admin=lot.admin,
+#                             status='PENDING',
+#                             quality='N',
+#                             match='Y'
+#                         )
+#                     )
+#
+#             # Bulk create SIM cards
+#             created_count = 0
+#             if sim_cards_to_create:
+#                 SimCard.objects.bulk_create(sim_cards_to_create, batch_size=500)
+#                 created_count = len(sim_cards_to_create)
+#
+#             return TriggerResult(
+#                 success=True,
+#                 message=f"Created {created_count} SIM card records for lot {lot.lot_number}",
+#                 data={
+#                     'lot_number': lot.lot_number,
+#                     'total_serials': len(lot.serial_numbers),
+#                     'created_count': created_count,
+#                     'skipped_duplicates': len(existing_serials)
+#                 }
+#             )
+#
+#         return TriggerResult(
+#             success=True,
+#             message="No serial numbers to process",
+#             data={}
+#         )
+#
+#     except Exception as e:
+#         return TriggerResult(
+#             success=False,
+#             message=f"Failed to create SIM cards from lot serial numbers: {str(e)}",
+#             error=e
+#         )
 
 
 @post_save_trigger(

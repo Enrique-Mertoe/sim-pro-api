@@ -102,8 +102,8 @@ def process_picklist_text(user, text: str, page_count: int = 0) -> Dict[str, Any
 
 def save_picklist_data(user, **kwargs):
     """
-    Save picklist data by creating batch metadata and lots with serial numbers.
-    SIM card records will be automatically created by the lot_serial_numbers_creation trigger.
+    Save picklist data by creating batch metadata, lots, and SIM cards in bulk.
+    Bypasses triggers for performance - creates all SIM cards directly in a single bulk operation.
 
     Args:
         user: Authenticated user
@@ -121,7 +121,7 @@ def save_picklist_data(user, **kwargs):
 
     from django.db import transaction
     from django.utils import timezone
-    from ssm.models import BatchMetadata, LotMetadata, Team
+    from ssm.models import BatchMetadata, LotMetadata, Team, SimCard
 
     try:
         metadata = kwargs.get('metadata', {})
@@ -155,7 +155,6 @@ def save_picklist_data(user, **kwargs):
                 return list(team_map.values())
 
             # 1. Create BatchMetadata
-            # Generate batch_id from orderNo or use a default
             batch_id = metadata.get('orderNo') or metadata.get('moveOrderNumber', '')
             teams_data = group_assignments_by_team(assignments)
 
@@ -178,10 +177,10 @@ def save_picklist_data(user, **kwargs):
             # 2. Create assignment lookup map
             assignment_map = {a['lotNumber']: a for a in assignments}
 
-            # 3. Create LotMetadata records
-            # Note: We create lots individually (not bulk_create) so that the
-            # lot_serial_numbers_creation trigger fires for each lot
-            created_lots = []
+            # 3. Bulk create LotMetadata records (without triggering signals)
+            lot_metadata_to_create = []
+            lot_metadata_map = {}  # Map lot_number to lot metadata for SIM card creation
+
             for lot_data in lots:
                 lot_number = lot_data['lotNumber']
                 assignment = assignment_map.get(lot_number)
@@ -199,7 +198,7 @@ def save_picklist_data(user, **kwargs):
                     except Team.DoesNotExist:
                         pass  # Keep as PENDING if team not found
 
-                lot_metadata = LotMetadata.objects.create(
+                lot_metadata = LotMetadata(
                     batch=batch,
                     lot_number=lot_number,
                     serial_numbers=lot_data['serialNumbers'],
@@ -211,17 +210,52 @@ def save_picklist_data(user, **kwargs):
                     quality_count=0,
                     nonquality_count=len(lot_data['serialNumbers'])
                 )
-                created_lots.append(lot_metadata)
+                lot_metadata_to_create.append(lot_metadata)
+                lot_metadata_map[lot_number] = {
+                    'metadata': lot_metadata,
+                    'serial_numbers': lot_data['serialNumbers'],
+                    'assigned_team': assigned_team
+                }
+
+            # Bulk create all lots at once
+            created_lots = LotMetadata.objects.bulk_create(lot_metadata_to_create, batch_size=100)
+
+            # 4. Bulk create all SIM cards in a single operation
+            sim_cards_to_create = []
+
+            for lot in created_lots:
+                lot_data = lot_metadata_map.get(lot.lot_number)
+                if not lot_data:
+                    continue
+
+                serial_numbers = lot_data['serial_numbers']
+                assigned_team = lot_data['assigned_team']
+
+                for serial_number in serial_numbers:
+                    sim_card = SimCard(
+                        serial_number=serial_number,
+                        batch=batch,
+                        lot=lot,
+                        team=assigned_team,
+                        admin=user,
+                        status='PENDING',
+                        quality='NON_QUALITY',
+                        match=False
+                    )
+                    sim_cards_to_create.append(sim_card)
+
+            # Bulk create all SIM cards at once (much faster than individual creates)
+            SimCard.objects.bulk_create(sim_cards_to_create, batch_size=1000, ignore_conflicts=True)
 
             return {
                 'success': True,
-                'message': f'Successfully created batch {batch.batch_id} with {len(created_lots)} lots',
+                'message': f'Successfully created batch {batch.batch_id} with {len(created_lots)} lots and {len(sim_cards_to_create)} SIM cards',
                 'data': {
                     'batch_id': str(batch.id),
                     'batch_number': batch.batch_id,
                     'lots_created': len(created_lots),
                     'lots_assigned': sum(1 for lot in created_lots if lot.assigned_team),
-                    'total_serial_numbers': sum(len(lot['serialNumbers']) for lot in lots),
+                    'total_serial_numbers': len(sim_cards_to_create),
                     'lot_numbers': [lot.lot_number for lot in created_lots],
                     'teams_assigned': len(teams_data)
                 }
