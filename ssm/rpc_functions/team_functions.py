@@ -362,6 +362,9 @@ def team_allocation(user):
             unassigned = team_sim_cards.filter(
                 assigned_to_user__isnull=True
             ).count()
+            stock = team_sim_cards.filter(
+                activation_date__isnull=True
+            ).count()
 
             allocation_data.append({
                 'team_id': str(team.id),
@@ -376,6 +379,7 @@ def team_allocation(user):
                 'allocated': total_allocated,
                 'assigned': assigned,
                 'unassigned': unassigned,
+                'stock': stock,
                 'is_active': team.is_active
             })
 
