@@ -16,8 +16,8 @@ WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
 SERVICE_NAME="ssm-api"
-APP_DIR="/opt/ssm_api"
-LOG_DIR="/var/log/ssm_api"
+APP_DIR="/opt/ssm_api_app"
+LOG_DIR="/var/log/ssm_api_app"
 GUNICORN_ACCESS_LOG="$LOG_DIR/gunicorn/access.log"
 GUNICORN_ERROR_LOG="$LOG_DIR/gunicorn/error.log"
 
