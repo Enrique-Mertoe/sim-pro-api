@@ -15,9 +15,9 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-SERVICE_NAME="isp-app"
-APP_DIR="/opt/isp_app"
-LOG_DIR="/var/log/isp_app"
+SERVICE_NAME="ssm-api"
+APP_DIR="/opt/ssm_api"
+LOG_DIR="/var/log/ssm_api"
 GUNICORN_ACCESS_LOG="$LOG_DIR/gunicorn/access.log"
 GUNICORN_ERROR_LOG="$LOG_DIR/gunicorn/error.log"
 
@@ -183,7 +183,7 @@ show_filtered() {
 
 # Export logs to file
 export_logs() {
-    local output_file=${1:-"isp-app-logs-$(date +%Y%m%d-%H%M%S).log"}
+    local output_file=${1:-"ssm-api-logs-$(date +%Y%m%d-%H%M%S).log"}
 
     print_header
     echo -e "${MAGENTA}=== Export Logs ===${NC}\n"
