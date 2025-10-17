@@ -228,13 +228,19 @@ def get_searched(user, query):
         batch_results = BatchMetadata.objects.none()
 
     for batch in batch_results:
+        matched_fields = []
+        if query in (batch.batch_id or '').lower(): matched_fields.append('batch_id')
+        if query in (batch.order_number or '').lower(): matched_fields.append('order_number')
+        if query in (batch.requisition_number or '').lower(): matched_fields.append('requisition_number')
+        if query in (batch.collection_point or '').lower(): matched_fields.append('collection_point')
         results["batches"].append({
             "id": str(batch.id),
             "batch_id": batch.batch_id,
             "order_number": batch.order_number,
             "requisition_number": batch.requisition_number,
             "company_name": batch.company_name,
-            "type": "Batch"
+            "type": "Batch",
+            "matched_fields": matched_fields
         })
 
     # Search Lots
