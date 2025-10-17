@@ -46,7 +46,7 @@ def handle_lot_serial_numbers_creation(context: TriggerContext[LotMetadata]) -> 
                             team=lot.assigned_team,
                             admin=lot.admin,
                             status='PENDING',
-                            quality='NONQUALITY',
+                            quality='N',
                             match='Y'
                         )
                     )
