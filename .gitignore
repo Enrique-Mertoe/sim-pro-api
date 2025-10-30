@@ -5,3 +5,5 @@
 /.env
 /.idea/
 /db.sqlite3
+/nginx-cors-config.conf
+/nginx-updated-config.txt
