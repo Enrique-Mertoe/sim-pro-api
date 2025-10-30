@@ -343,18 +343,21 @@ def team_allocation(user):
         if ssm_user.role not in ['admin']:
             raise PermissionError("Only admins and team leaders can view team allocation")
 
-        teams = Team.objects.filter(admin=user.admin or user).all()
+        teams = Team.objects.filter(admin=user, is_default=False).all()
         allocation_data = []
 
         for team in teams:
-            team_lots = LotMetadata.objects.filter(
-                assigned_team=team,
-                admin=user
-            ).values_list('lot_number', flat=True)
+            # team_lots = LotMetadata.objects.filter(
+            #     assigned_team=team,
+            #     admin=user
+            # )
             team_sim_cards = SimCard.objects.filter(
-                lot__in=team_lots,
-                admin=ssm_user.admin or user
+                # serial_number__in=team_lots.serial_numbers,
+                team=team,
+                admin=user
             )
+
+            print("allo", team_sim_cards)
             total_allocated = team_sim_cards.count()
             assigned = team_sim_cards.filter(
                 assigned_to_user__isnull=False
