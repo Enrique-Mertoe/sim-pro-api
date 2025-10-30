@@ -485,8 +485,207 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
         raise Exception(f'Failed to process chunk {chunk_index}: {str(e)}')
 
 
+def init_chunked_upload(user, filename: str, total_size: int, total_chunks: int):
+    """
+    Initialize a chunked file upload session
+    Creates a temporary directory to store chunks
+
+    Args:
+        user: Authenticated user
+        filename: Original filename
+        total_size: Total file size in bytes
+        total_chunks: Number of chunks to expect
+
+    Returns:
+        {
+            'success': True,
+            'upload_id': 'uuid',
+            'expires_at': 'timestamp'
+        }
+    """
+    try:
+        import uuid
+        import os
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Generate unique upload ID
+        upload_id = str(uuid.uuid4())
+
+        # Create upload directory
+        upload_dir = f'/tmp/chunked_uploads/{user.id}/{upload_id}'
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Store metadata
+        metadata = {
+            'filename': filename,
+            'total_size': total_size,
+            'total_chunks': total_chunks,
+            'user_id': str(user.id),
+            'created_at': timezone.now().isoformat(),
+            'expires_at': (timezone.now() + timedelta(hours=2)).isoformat(),
+            'chunks_received': []
+        }
+
+        # Save metadata file
+        import json
+        metadata_path = f'{upload_dir}/metadata.json'
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f)
+
+        return {
+            'success': True,
+            'upload_id': upload_id,
+            'expires_at': metadata['expires_at']
+        }
+
+    except Exception as e:
+        raise Exception(f'Failed to initialize upload: {str(e)}')
+
+
+def upload_file_chunk(user, upload_id: str, chunk_index: int, chunk_data: str):
+    """
+    Upload a single chunk of the file
+    Chunk data is base64 encoded
+
+    Args:
+        user: Authenticated user
+        upload_id: Upload session ID from init_chunked_upload
+        chunk_index: Index of this chunk (0-based)
+        chunk_data: Base64 encoded chunk data
+
+    Returns:
+        {
+            'success': True,
+            'chunk_index': int,
+            'chunks_received': int,
+            'total_chunks': int
+        }
+    """
+    try:
+        import base64
+        import json
+        import os
+
+        upload_dir = f'/tmp/chunked_uploads/{user.id}/{upload_id}'
+        metadata_path = f'{upload_dir}/metadata.json'
+
+        # Verify upload exists
+        if not os.path.exists(metadata_path):
+            raise Exception('Upload session not found or expired')
+
+        # Load metadata
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        # Verify user owns this upload
+        if metadata['user_id'] != str(user.id):
+            raise Exception('Unauthorized')
+
+        # Decode and save chunk
+        chunk_bytes = base64.b64decode(chunk_data)
+        chunk_path = f'{upload_dir}/chunk_{chunk_index:05d}.bin'
+
+        with open(chunk_path, 'wb') as f:
+            f.write(chunk_bytes)
+
+        # Update metadata
+        if chunk_index not in metadata['chunks_received']:
+            metadata['chunks_received'].append(chunk_index)
+            metadata['chunks_received'].sort()
+
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f)
+
+        return {
+            'success': True,
+            'chunk_index': chunk_index,
+            'chunks_received': len(metadata['chunks_received']),
+            'total_chunks': metadata['total_chunks']
+        }
+
+    except Exception as e:
+        raise Exception(f'Failed to upload chunk: {str(e)}')
+
+
+def finalize_chunked_upload(user, upload_id: str):
+    """
+    Finalize chunked upload by combining chunks and processing the file
+    Automatically parses the Excel file and returns the same data as parse_safaricom_report
+
+    Args:
+        user: Authenticated user
+        upload_id: Upload session ID
+
+    Returns:
+        Same as parse_safaricom_report - parsed report data with metrics
+    """
+    try:
+        import json
+        import os
+        import shutil
+
+        upload_dir = f'/tmp/chunked_uploads/{user.id}/{upload_id}'
+        metadata_path = f'{upload_dir}/metadata.json'
+
+        # Verify upload exists
+        if not os.path.exists(metadata_path):
+            raise Exception('Upload session not found or expired')
+
+        # Load metadata
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        # Verify user owns this upload
+        if metadata['user_id'] != str(user.id):
+            raise Exception('Unauthorized')
+
+        # Verify all chunks received
+        total_chunks = metadata['total_chunks']
+        chunks_received = metadata['chunks_received']
+
+        if len(chunks_received) != total_chunks:
+            missing = [i for i in range(total_chunks) if i not in chunks_received]
+            raise Exception(f'Missing chunks: {missing}')
+
+        # Combine chunks into final file
+        final_file_path = f'{upload_dir}/{metadata["filename"]}'
+
+        with open(final_file_path, 'wb') as final_file:
+            for i in range(total_chunks):
+                chunk_path = f'{upload_dir}/chunk_{i:05d}.bin'
+                with open(chunk_path, 'rb') as chunk_file:
+                    final_file.write(chunk_file.read())
+
+        # Read and encode file to base64 for processing
+        import base64
+        with open(final_file_path, 'rb') as f:
+            file_content = f.read()
+            file_base64 = base64.b64encode(file_content).decode('utf-8')
+
+        # Process using existing parse_safaricom_report logic
+        result = parse_safaricom_report(user, file_base64)
+
+        # Cleanup - remove upload directory
+        try:
+            shutil.rmtree(upload_dir)
+        except Exception as e:
+            # Log but don't fail if cleanup fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Failed to cleanup upload directory {upload_dir}: {str(e)}')
+
+        return result
+
+    except Exception as e:
+        raise Exception(f'Failed to finalize upload: {str(e)}')
+
+
 functions = {
     'get_teams_with_lots_mapping': get_teams_with_lots_mapping,
     'parse_safaricom_report': parse_safaricom_report,
     'save_report_data_chunk': save_report_data_chunk,
+    'init_chunked_upload': init_chunked_upload,
+    'upload_file_chunk': upload_file_chunk,
+    'finalize_chunked_upload': finalize_chunked_upload,
 }
