@@ -40,24 +40,27 @@ def get_connections_analytics(user, start_date=None, end_date=None, **kwargs):
         non_quality_count = base_query.filter(quality='N').count()
 
         # From Picklist (batch not null) vs Extra (batch null)
-        from_picklist = base_query.filter(batch__isnull=False).count()
-        extra_connections = base_query.filter(batch__isnull=True).count()
+        from_picklist = base_query.filter(team__is_default=False).count()
+        extra_connections = base_query.filter(team__is_default=True).count()
 
         # Non-quality breakdown
         non_quality_query = base_query.filter(quality='N')
 
         # Low top-up (< 50)
         low_topup = non_quality_query.filter(
-            Q(top_up_amount__lt=50) & Q(top_up_amount__isnull=False)
+            Q(top_up_amount__lt=50) & Q(top_up_amount__gt=0)
         ).count()
 
         # Zero usage
         zero_usage = non_quality_query.filter(
-            Q(usage=0) | Q(usage__isnull=True)
+            Q(usage__lt=50) | Q(usage__isnull=True),
+            top_up_amount__gte=50
         ).count()
 
         # No top-up amount
-        no_topup = non_quality_query.filter(top_up_amount__isnull=True).count()
+        no_topup = non_quality_query.filter(
+            Q(top_up_amount__isnull=True) | Q(top_up_amount=0)
+        ).count()
 
         return {
             'success': True,
@@ -144,7 +147,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
                     When(
                         Q(quality='N') &
                         Q(top_up_amount__lt=50) &
-                        Q(top_up_amount__isnull=False),
+                        Q(top_up_amount__gt=0),
                         then=1
                     ),
                     output_field=IntegerField()
@@ -154,7 +157,8 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
                 Case(
                     When(
                         Q(quality='N') &
-                        (Q(usage=0) | Q(usage__isnull=True)),
+                        (Q(usage__lt=50) | Q(usage__isnull=True)) &
+                        Q(top_up_amount__gte=50),
                         then=1
                     ),
                     output_field=IntegerField()
@@ -164,7 +168,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
                 Case(
                     When(
                         Q(quality='N') &
-                        Q(top_up_amount__isnull=True),
+                        (Q(top_up_amount__isnull=True) | Q(top_up_amount=0)),
                         then=1
                     ),
                     output_field=IntegerField()
@@ -412,7 +416,7 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
                     When(
                         Q(quality='N') &
                         Q(top_up_amount__lt=50) &
-                        Q(top_up_amount__isnull=False),
+                        Q(top_up_amount__gt=0),
                         then=1
                     ),
                     output_field=IntegerField()
@@ -422,7 +426,8 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
                 Case(
                     When(
                         Q(quality='N') &
-                        (Q(usage=0) | Q(usage__isnull=True)),
+                        (Q(usage__lt=50) | Q(usage__isnull=True)) &
+                        Q(top_up_amount__gte=50),
                         then=1
                     ),
                     output_field=IntegerField()
@@ -432,7 +437,7 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
                 Case(
                     When(
                         Q(quality='N') &
-                        Q(top_up_amount__isnull=True),
+                        (Q(top_up_amount__isnull=True) | Q(top_up_amount=0)),
                         then=1
                     ),
                     output_field=IntegerField()
