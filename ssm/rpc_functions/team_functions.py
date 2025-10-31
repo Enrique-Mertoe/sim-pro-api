@@ -429,7 +429,7 @@ def export_team_allocation_excel(user):
             for team in teams:
                 sim_cards = SimCard.objects.filter(team=team, admin=user).values(
                     'serial_number', 'quality', 'assigned_to_user__full_name',
-                    'activation_date', 'sale_date', 'top_up_amount'
+                    'ba_msisdn', 'mobigo', 'activation_date', 'sale_date', 'top_up_amount'
                 )
 
                 for sim in sim_cards:
@@ -439,6 +439,8 @@ def export_team_allocation_excel(user):
                         'Serial Number': sim['serial_number'],
                         'Quality': normalize_quality(sim['quality']),
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
+                        'BA MSISDN': sim['ba_msisdn'] or 'N/A',
+                        'Mobigo': sim['mobigo'] or 'N/A',
                         'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim[
                             'activation_date'] else None,
                         'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
@@ -453,9 +455,18 @@ def export_team_allocation_excel(user):
 
             df_all.to_excel(writer, sheet_name='All Teams', index=False)
 
-            # Apply colors only if we have real data
+            # Apply colors and filters only if we have real data
             if all_data:
                 worksheet = writer.sheets['All Teams']
+                worksheet.auto_filter.ref = worksheet.dimensions
+                
+                # Set column widths
+                worksheet.column_dimensions['C'].width = 25  # Serial Number
+                worksheet.column_dimensions['F'].width = 18  # BA MSISDN
+                worksheet.column_dimensions['G'].width = 18  # Mobigo
+                worksheet.column_dimensions['H'].width = 20  # Activation Date
+                worksheet.column_dimensions['I'].width = 20  # Sale Date
+                
                 current_team = None
                 color_index = -1
 
@@ -475,7 +486,7 @@ def export_team_allocation_excel(user):
             for team in teams:
                 sim_cards = SimCard.objects.filter(team=team, admin=user).values(
                     'serial_number', 'quality', 'assigned_to_user__full_name',
-                    'activation_date', 'sale_date', 'top_up_amount', 'created_at'
+                    'ba_msisdn', 'mobigo', 'activation_date', 'sale_date', 'top_up_amount', 'created_at'
                 )
 
                 team_data = []
@@ -484,6 +495,8 @@ def export_team_allocation_excel(user):
                         'Serial Number': sim['serial_number'],
                         'Quality': normalize_quality(sim['quality']),
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
+                        'BA MSISDN': sim['ba_msisdn'] or 'N/A',
+                        'Mobigo': sim['mobigo'] or 'N/A',
                         'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim[
                             'activation_date'] else None,
                         'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
@@ -495,6 +508,16 @@ def export_team_allocation_excel(user):
                     df_team = pd.DataFrame(team_data)
                     sheet_name = team.name[:31]
                     df_team.to_excel(writer, sheet_name=sheet_name, index=False)
+                    team_worksheet = writer.sheets[sheet_name]
+                    team_worksheet.auto_filter.ref = team_worksheet.dimensions
+                    
+                    # Set column widths for team sheets
+                    team_worksheet.column_dimensions['A'].width = 25  # Serial Number
+                    team_worksheet.column_dimensions['D'].width = 18  # BA MSISDN
+                    team_worksheet.column_dimensions['E'].width = 18  # Mobigo
+                    team_worksheet.column_dimensions['F'].width = 20  # Activation Date
+                    team_worksheet.column_dimensions['G'].width = 20  # Sale Date
+                    team_worksheet.column_dimensions['I'].width = 20  # Created Date
 
         output.seek(0)
         excel_data = output.getvalue()
