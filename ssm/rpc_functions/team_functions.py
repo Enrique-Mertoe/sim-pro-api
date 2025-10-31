@@ -6,10 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.utils import timezone
 from ..models import User, Team, SimCard, LotMetadata
-import pandas as pd
-import base64
-from io import BytesIO
-from openpyxl.styles import PatternFill
+
 
 SSMAuthUser = get_user_model()
 
@@ -407,7 +404,10 @@ def export_team_allocation_excel(user):
     try:
         if user.role not in ['admin']:
             raise PermissionError("Only admins can export team allocation")
-
+        import pandas as pd
+        import base64
+        from io import BytesIO
+        from openpyxl.styles import PatternFill
         teams = Team.objects.filter(admin=user)
         
         if not teams.exists():
@@ -433,8 +433,8 @@ def export_team_allocation_excel(user):
                         'Status': sim['status'],
                         'Quality': sim['quality'],
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
-                        'Activation Date': sim['activation_date'],
-                        'Sale Date': sim['sale_date'],
+                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim['activation_date'] else None,
+                        'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
                         'Top Up Amount': sim['top_up_amount'] or 0
                     })
             
@@ -478,10 +478,10 @@ def export_team_allocation_excel(user):
                         'Status': sim['status'],
                         'Quality': sim['quality'],
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
-                        'Activation Date': sim['activation_date'],
-                        'Sale Date': sim['sale_date'],
+                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim['activation_date'] else None,
+                        'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
                         'Top Up Amount': sim['top_up_amount'] or 0,
-                        'Created Date': sim['created_at']
+                        'Created Date': sim['created_at'].replace(tzinfo=None) if sim['created_at'] else None
                     })
                 
                 if team_data:
