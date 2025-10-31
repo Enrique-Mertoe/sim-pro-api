@@ -7,7 +7,6 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from ..models import User, Team, SimCard, LotMetadata
 
-
 SSMAuthUser = get_user_model()
 
 
@@ -399,6 +398,14 @@ def team_allocation(user):
         raise PermissionError("User profile not found")
 
 
+def normalize_quality(value):
+    if value in ['Y', 'QUALITY']:
+        return 'Y'
+    elif value in ['N', 'NON_QUALITY']:
+        return 'N'
+    return 'N/A'
+
+
 def export_team_allocation_excel(user):
     """Export team allocation to Excel with multiple sheets and colors"""
     try:
@@ -409,90 +416,90 @@ def export_team_allocation_excel(user):
         from io import BytesIO
         from openpyxl.styles import PatternFill
         teams = Team.objects.filter(admin=user)
-        
+
         if not teams.exists():
             raise Exception("No teams found for export")
-        
+
         output = BytesIO()
         all_data = []
         team_colors = ['FFE6E6', 'E6F3FF', 'E6FFE6', 'FFF0E6', 'F0E6FF', 'FFFFE6', 'E6FFFF', 'FFE6F0']
-        
+
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             # Collect all data
             for team in teams:
                 sim_cards = SimCard.objects.filter(team=team, admin=user).values(
-                    'serial_number', 'status', 'quality', 'assigned_to_user__full_name',
+                    'serial_number', 'quality', 'assigned_to_user__full_name',
                     'activation_date', 'sale_date', 'top_up_amount'
                 )
-                
+
                 for sim in sim_cards:
                     all_data.append({
                         'Team': team.name,
                         'Region': team.region or 'N/A',
                         'Serial Number': sim['serial_number'],
-                        'Status': sim['status'],
-                        'Quality': sim['quality'],
+                        'Quality': normalize_quality(sim['quality']),
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
-                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim['activation_date'] else None,
+                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim[
+                            'activation_date'] else None,
                         'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
                         'Top Up Amount': sim['top_up_amount'] or 0
                     })
-            
+
             # Create general sheet (always create at least one sheet)
             if all_data:
                 df_all = pd.DataFrame(all_data)
             else:
                 df_all = pd.DataFrame([{'Team': 'No Data', 'Serial Number': 'No SIM cards found'}])
-            
+
             df_all.to_excel(writer, sheet_name='All Teams', index=False)
-            
+
             # Apply colors only if we have real data
             if all_data:
                 worksheet = writer.sheets['All Teams']
                 current_team = None
                 color_index = -1
-                
+
                 for row_idx, row in enumerate(df_all.itertuples(), start=2):
                     if row.Team != current_team:
                         current_team = row.Team
                         color_index = (color_index + 1) % len(team_colors)
-                    
-                    fill = PatternFill(start_color=team_colors[color_index], 
-                                     end_color=team_colors[color_index], 
-                                     fill_type='solid')
-                    
+
+                    fill = PatternFill(start_color=team_colors[color_index],
+                                       end_color=team_colors[color_index],
+                                       fill_type='solid')
+
                     for col in range(1, len(df_all.columns) + 1):
                         worksheet.cell(row=row_idx, column=col).fill = fill
-            
+
             # Individual team sheets
             for team in teams:
                 sim_cards = SimCard.objects.filter(team=team, admin=user).values(
-                    'serial_number', 'status', 'quality', 'assigned_to_user__full_name',
+                    'serial_number', 'quality', 'assigned_to_user__full_name',
                     'activation_date', 'sale_date', 'top_up_amount', 'created_at'
                 )
-                
+
                 team_data = []
                 for sim in sim_cards:
                     team_data.append({
                         'Serial Number': sim['serial_number'],
-                        'Status': sim['status'],
-                        'Quality': sim['quality'],
+                        'Quality': normalize_quality(sim['quality']),
                         'Assigned To': sim['assigned_to_user__full_name'] or 'Unassigned',
-                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim['activation_date'] else None,
+                        'Activation Date': sim['activation_date'].replace(tzinfo=None) if sim[
+                            'activation_date'] else None,
                         'Sale Date': sim['sale_date'].replace(tzinfo=None) if sim['sale_date'] else None,
                         'Top Up Amount': sim['top_up_amount'] or 0,
                         'Created Date': sim['created_at'].replace(tzinfo=None) if sim['created_at'] else None
                     })
-                
+
                 if team_data:
                     df_team = pd.DataFrame(team_data)
                     sheet_name = team.name[:31]
                     df_team.to_excel(writer, sheet_name=sheet_name, index=False)
-        
+
         output.seek(0)
         excel_data = output.getvalue()
         base64_data = base64.b64encode(excel_data).decode('utf-8')
-        
+
         return {
             'success': True,
             'file_base64': base64_data,
@@ -500,7 +507,7 @@ def export_team_allocation_excel(user):
             'total_teams': teams.count(),
             'total_sim_cards': len(all_data)
         }
-        
+
     except Exception as e:
         raise Exception(f'Failed to export team allocation: {str(e)}')
 

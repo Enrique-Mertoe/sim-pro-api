@@ -36,15 +36,15 @@ def get_connections_analytics(user, start_date=None, end_date=None, **kwargs):
         total_connections = base_query.count()
 
         # Quality vs Non-Quality
-        quality_count = base_query.filter(quality='Y').count()
-        non_quality_count = base_query.filter(quality='N').count()
+        quality_count = base_query.filter(Q(quality__in=['Y', 'QUALITY'])).count()
+        non_quality_count = base_query.filter(Q(quality__in=['N', 'NON_QUALITY'])).count()
 
         # From Picklist (batch not null) vs Extra (batch null)
         from_picklist = base_query.filter(team__is_default=False).count()
         extra_connections = base_query.filter(team__is_default=True).count()
 
         # Non-quality breakdown
-        non_quality_query = base_query.filter(quality='N')
+        non_quality_query = base_query.filter(Q(quality__in=['N', 'NON_QUALITY']))
 
         # Low top-up (< 50)
         low_topup = non_quality_query.filter(
@@ -134,8 +134,9 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
         team_stats = base_query.values('team__name', 'team__id').annotate(
             # Basic counts
             total_connections=Count('id'),
-            quality_count=Count(Case(When(quality='Y', then=1), output_field=IntegerField())),
-            non_quality_count=Count(Case(When(quality='N', then=1), output_field=IntegerField())),
+            quality_count=Count(Case(When(Q(quality__in=['Y', 'QUALITY']), then=1), output_field=IntegerField())),
+            non_quality_count=Count(
+                Case(When(Q(quality__in=['N', 'NON_QUALITY']), then=1), output_field=IntegerField())),
             from_picklist=Count(Case(When(batch__isnull=False, then=1), output_field=IntegerField())),
             extra_connections=Count(Case(When(batch__isnull=True, then=1), output_field=IntegerField())),
             total_topup=Sum('top_up_amount'),
@@ -145,7 +146,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
             low_topup_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                        Q(quality__in=['N', 'NON_QUALITY']) &
                         Q(top_up_amount__lt=50) &
                         Q(top_up_amount__gt=0),
                         then=1
@@ -156,7 +157,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
             zero_usage_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                        Q(quality__in=['N', 'NON_QUALITY']) &
                         (Q(usage__lt=50) | Q(usage__isnull=True)) &
                         Q(top_up_amount__gte=50),
                         then=1
@@ -167,7 +168,7 @@ def get_team_analytics_breakdown(user, start_date=None, end_date=None, **kwargs)
             no_topup_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                        Q(quality__in=['N', 'NON_QUALITY']) &
                         (Q(top_up_amount__isnull=True) | Q(top_up_amount=0)),
                         then=1
                     ),
@@ -252,8 +253,9 @@ def get_quality_trend(user, start_date=None, end_date=None, **kwargs):
         trend_data = base_query.annotate(
             date=TruncDate('activation_date')
         ).values('date').annotate(
-            quality_count=Count(Case(When(quality='Y', then=1), output_field=IntegerField())),
-            non_quality_count=Count(Case(When(quality='N', then=1), output_field=IntegerField())),
+            quality_count=Count(Case(When(Q(quality__in=['Y', 'QUALITY']), then=1), output_field=IntegerField())),
+            non_quality_count=Count(
+                Case(When(Q(quality__in=['N', 'NON_QUALITY']), then=1), output_field=IntegerField())),
             total=Count('id')
         ).order_by('date')
 

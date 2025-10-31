@@ -109,7 +109,7 @@ def get_quality_metrics(user):
             next_month_start = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Base filter: quality='Y' AND (not activated OR activated this month)
-        base_filter = Q(admin=user) & Q(quality='Y') & (
+        base_filter = Q(admin=user) & (Q(quality='Y') | Q(quality='QUALITY')) & (
                 Q(activation_date__isnull=False) &
                 Q(activation_date__gte=current_month_start, activation_date__lt=next_month_start)
         )
@@ -177,7 +177,7 @@ def get_non_quality_metrics(user):
             next_month_start = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Base filter: quality='N' AND (not activated OR activated this month)
-        base_filter = Q(admin=user) & Q(quality='N') & (
+        base_filter = Q(admin=user) & (Q(quality='N') | Q(quality='NON_QUALITY')) & (
                 Q(activation_date__isnull=False) &
                 Q(activation_date__gte=current_month_start, activation_date__lt=next_month_start)
         )

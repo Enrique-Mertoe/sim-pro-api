@@ -1,3 +1,6 @@
+from django.db.models import Q
+
+
 def tl_get_dash_start(user, ):
     """Get team leader dashboard metrics and statistics"""
     from ssm.models import User, SimCard, LotMetadata
@@ -125,31 +128,33 @@ def tl_get_dashboard_stats(user, ):
         last_month_same_day = last_month_start + timedelta(days=current_day_of_month - 1)
 
         # Month-to-date quality SIM cards
+
         quality_mtd = team_sim_cards.filter(
+            Q(quality='Y') | Q(quality='QUALITY'),
             activation_date__gte=month_start,
             activation_date__lte=now,
-            quality='Y'
+
         ).count()
 
         # Month-to-date non-quality SIM cards
         non_quality_mtd = team_sim_cards.filter(
+            Q(quality='N') | Q(quality='NON_QUALITY'),
             activation_date__gte=month_start,
             activation_date__lte=now,
-            quality='N'
         ).count()
 
         # Last month's quality for same time period
         last_month_quality = team_sim_cards.filter(
+            Q(quality='Y') | Q(quality='QUALITY'),
             activation_date__gte=last_month_start,
             activation_date__lte=last_month_same_day,
-            quality='Y'
         ).count()
 
         # Last month's non-quality for same time period
         last_month_non_quality = team_sim_cards.filter(
+            Q(quality='N') | Q(quality='NON_QUALITY'),
             activation_date__gte=last_month_start,
             activation_date__lte=last_month_same_day,
-            quality='N'
         ).count()
 
         return {
