@@ -393,6 +393,8 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                         usage=record.get('usage', 0),
                         top_up_amount=record.get('top_up_amount', 0),
                         quality=record.get('quality', 'N'),
+                        ba_msisdn=record.get('ba', 'N/A'),
+                        mobigo=record.get('agent_msisdn', 'N/A'),
                     ))
                     new_serials.append(record['serial_number'])
 
@@ -431,13 +433,15 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                         sim_card.usage = record.get('usage', 0)
                         sim_card.top_up_amount = record.get('top_up_amount', 0)
                         sim_card.quality = record.get('quality', 'N')
+                        sim_card.ba_msisdn = record.get('ba', 'N/A')
+                        sim_card.mobigo = record.get('agent_msisdn', 'N/A')
                         sim_cards_to_update.append(sim_card)
 
                 # Bulk update - single query
                 if sim_cards_to_update:
                     SimCard.objects.bulk_update(
                         sim_cards_to_update,
-                        ['activation_date', 'usage', 'top_up_amount', 'quality'],
+                        ['activation_date', 'usage', 'top_up_amount', 'quality','ba_msisdn','mobigo'],
                         batch_size=1000
                     )
                     updated_count = len(sim_cards_to_update)
@@ -460,12 +464,14 @@ def save_report_data_chunk(user, records: list, chunk_index: int = 0):
                     sim_card.usage = record.get('usage', 0)
                     sim_card.top_up_amount = record.get('top_up_amount', 0)
                     sim_card.quality = record.get('quality', 'N')
+                    sim_card.ba_msisdn = record.get('ba', 'N/A')
+                    sim_card.mobigo = record.get('agent_msisdn', 'N/A')
                     regulars_to_update.append(sim_card)
 
             if regulars_to_update:
                 SimCard.objects.bulk_update(
                     regulars_to_update,
-                    ['activation_date', 'usage', 'top_up_amount', 'quality'],
+                    ['activation_date', 'usage', 'top_up_amount', 'quality','ba_msisdn','mobigo'],
                     batch_size=1000
                 )
                 updated_count += len(regulars_to_update)
