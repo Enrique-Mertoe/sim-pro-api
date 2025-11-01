@@ -401,14 +401,27 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
         if user_id:
             base_query = base_query.filter(assigned_to_user_id=user_id)
 
-        # Apply date filters if provided
-        if start_date:
-            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            base_query = base_query.filter(activation_date__gte=start_dt)
+        # Default to current month if no dates provided
+        if not start_date or not end_date:
+            now = timezone.now()
+            current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            if now.month == 12:
+                next_month_start = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                next_month_start = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            if not start_date:
+                start_date = current_month_start.isoformat()
+            if not end_date:
+                end_date = next_month_start.isoformat()
 
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            base_query = base_query.filter(activation_date__lte=end_dt)
+        # Apply date filters
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        base_query = base_query.filter(activation_date__gte=start_dt)
+
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        base_query = base_query.filter(activation_date__lt=end_dt)
 
         # Filter by team
         if team_id and team_id != 'null':
@@ -429,7 +442,7 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
             low_topup_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                        Q(quality__in=['N','NON_QUALITY']) &
                         Q(top_up_amount__lt=50) &
                         Q(top_up_amount__gt=0),
                         then=1
@@ -440,7 +453,7 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
             zero_usage_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                         Q(quality__in=['N','NON_QUALITY']) &
                         (Q(usage__lt=50) | Q(usage__isnull=True)) &
                         Q(top_up_amount__gte=50),
                         then=1
@@ -451,7 +464,7 @@ def get_team_metrics(user, team_id=None, start_date=None, end_date=None, **kwarg
             no_topup_count=Count(
                 Case(
                     When(
-                        Q(quality='N') &
+                         Q(quality__in=['N','NON_QUALITY']) &
                         (Q(top_up_amount__isnull=True) | Q(top_up_amount=0)),
                         then=1
                     ),
